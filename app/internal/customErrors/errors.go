@@ -22,6 +22,8 @@ var (
 	ErrUserNotFound          = &Error{Code: 404, Message: "user not found"}
 	ErrHttpMethodNotAllowed  = &Error{Code: 405, Message: "http method not allowed"}
 	ErrBadRequest            = &Error{Code: 400, Message: "bad request"}
+	ErrInvalidEmail          = &Error{Code: 400, Message: "invalid email"}
+	ErrInvalidPassword       = &Error{Code: 400, Message: "password must be at least 8 characters long, contain at least one uppercase letter, one lowercase letter, one number, and one special character"}
 	ErrInternalServer        = &Error{Code: 500, Message: "internal server error"}
 	ErrDbUnreacheable        = &Error{Code: 503, Message: "database unreachable"}
 	ErrDbSSLHandshakeFailed  = &Error{Code: 502, Message: "database SSL handshake failed"}

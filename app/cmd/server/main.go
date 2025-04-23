@@ -26,7 +26,6 @@ func loadTLSCredentials() (credentials.TransportCredentials, error) {
 	certPool := x509.NewCertPool()
 	certPool.AppendCertsFromPEM(caCert)
 
-	// Create TLS config
 	config := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
 		ClientAuth:   tls.RequireAndVerifyClientCert,

@@ -16,10 +16,11 @@ message RegisterRequest {
     string email = 1;
     string username = 2;
     string password = 3;
+    string role = 4;
 }
 
 message RegisterResponse {
-    string userId = 1;
+    string sub = 1;
 }
 
 message LoginRequest {
@@ -38,7 +39,6 @@ message RefreshTokenRequest {
 
 message RefreshTokenResponse {
     string accessToken = 1;
-    string refreshToken = 2;
 }
 
 message ValidateTokenRequest {
@@ -46,7 +46,7 @@ message ValidateTokenRequest {
 }
 
 message ValidateTokenResponse {
-    string userId = 1;
+    string sub = 1;
     string username = 2;
     string email = 3;
 }

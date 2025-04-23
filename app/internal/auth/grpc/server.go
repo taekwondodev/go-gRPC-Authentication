@@ -1,20 +1,33 @@
 package grpc
 
 import (
-	"backend/internal/auth/service"
+	"app/internal/auth/service"
 	"context"
+
+	grpc "app/gen/grpc"
+	pb "app/gen/pb"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 type Server struct {
-	pb.UnimplementedAuthServiceServer
+	grpc.UnimplementedAuthServiceServer
 	authService service.AuthService
 }
 
 func NewServer(authService service.AuthService) *Server {
 	return &Server{authService: authService}
+}
+
+func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
+	res, err := s.authService.Register(req.Email, req.Username, req.Password)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.RegisterResponse{
+		UserId: res.UserId,
+	}, nil
 }
 
 func (s *Server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {

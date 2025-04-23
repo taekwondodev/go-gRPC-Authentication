@@ -18,8 +18,8 @@
 # vendor/
 
 # Go workspace file
-backend/go.work
-backend/go.work.sum
+app/go.work
+app/go.work.sum
 
 # env file
 .env
@@ -28,7 +28,7 @@ backend/go.work.sum
 .DS_Store
 
 # gen files
-backend/gen/**
+app/gen/**
 
 # cert postgres
 postgres/ssl/*.key

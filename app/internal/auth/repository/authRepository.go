@@ -1,16 +1,17 @@
 package repository
 
 import (
-	customerrors "backend/customErrors"
-	"backend/models"
+	customerrors "app/internal/customErrors"
+	"app/internal/models"
 	"database/sql"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserRepository interface {
 	CheckUserExists(username, email string) error
-	SaveUser(username, password, email, role string) error
+	SaveUser(username, password, email, role string) (uuid.UUID, error)
 	GetUserByCredentials(username, password string) (*models.User, error)
 }
 
@@ -44,34 +45,39 @@ func (r *UserRepositoryImpl) CheckUserExists(username, email string) error {
 	}
 }
 
-func (r *UserRepositoryImpl) SaveUser(username, password, email, role string) error {
+func (r *UserRepositoryImpl) SaveUser(username, password, email, role string) (uuid.UUID, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return err
+		return uuid.Nil, err
 	}
 
-	query := "INSERT INTO users (username, email, password_hash, role) VALUES ($1, $2, $3, $4)"
-
-	_, err = r.db.Exec(
+	query := "INSERT INTO users (username, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING sub"
+	var sub uuid.UUID
+	err = r.db.QueryRow(
 		query,
 		username,
 		email,
 		string(hashedPassword),
 		role,
-	)
-	return err
+	).Scan(&sub)
+
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return sub, nil
 }
 
 func (r *UserRepositoryImpl) GetUserByCredentials(username, password string) (*models.User, error) {
 	var user models.User
 	query := `
-        SELECT id, username, email, password_hash, role, created_at, updated_at, is_active
+        SELECT sub, username, email, password_hash, role, created_at, updated_at, is_active
         FROM users
         WHERE username = $1
     `
 
 	err := r.db.QueryRow(query, username).Scan(
-		&user.ID,
+		&user.Sub,
 		&user.Username,
 		&user.Email,
 		&user.PasswordHash,
