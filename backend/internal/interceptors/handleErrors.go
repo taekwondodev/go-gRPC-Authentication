@@ -2,9 +2,25 @@ package middleware
 
 import (
 	customerrors "backend/customErrors"
+	"context"
 	"encoding/json"
+	"log"
 	"net/http"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
+
+func ErrorInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+	resp, err := handler(ctx, req)
+	if err != nil {
+		log.Printf("Error: %v", err)
+		// Converti errori specifici in status gRPC
+		return nil, status.Errorf(codes.Internal, "internal error")
+	}
+	return resp, nil
+}
 
 type HandlerFunc func(w http.ResponseWriter, r *http.Request) error
 
