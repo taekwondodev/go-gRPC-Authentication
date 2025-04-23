@@ -1,7 +1,7 @@
 services:
-  backend:
+  auth_service:
     image: ghcr.io/taekwondodev/go-rest-auth:latest
-    container_name: backend
+    container_name: auth_service
     ports:
       - "80:80"
     networks:
@@ -43,7 +43,7 @@ services:
   
   postgres:
     image: postgres:alpine
-    container_name: postgres
+    container_name: postgres_auth
     networks:
       - private_network
     environment:
