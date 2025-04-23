@@ -1,18 +1,13 @@
 package grpc
 
 import (
+	pb "app/gen"
 	"app/internal/auth/service"
 	"context"
-
-	grpc "app/gen/grpc"
-	pb "app/gen/pb"
-
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type Server struct {
-	grpc.UnimplementedAuthServiceServer
+	pb.UnimplementedAuthServiceServer
 	authService service.AuthService
 }
 
@@ -21,38 +16,41 @@ func NewServer(authService service.AuthService) *Server {
 }
 
 func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
-	res, err := s.authService.Register(req.Email, req.Username, req.Password)
+	sub, err := s.authService.Register(req.Username, req.Email, req.Password, req.Role)
 	if err != nil {
 		return nil, err
 	}
 	return &pb.RegisterResponse{
-		UserId: res.UserId,
+		Sub: sub.String(),
 	}, nil
 }
 
 func (s *Server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
-	token, refreshToken, err := s.authService.Login(req.Email, req.Password)
+	token, refreshToken, err := s.authService.Login(req.Username, req.Password)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.LoginResponse{Token: token, RefreshToken: refreshToken}, nil
-}
-
-func (s *Server) RefreshToken(ctx context.Context, req *pb.RefreshRequest) (*pb.RefreshResponse, error) {
-	newToken, newRefreshToken, err := s.authService.RefreshToken(req.RefreshToken)
-	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, "invalid refresh token")
-	}
-	return &pb.RefreshResponse{
-		Token:        newToken,
-		RefreshToken: newRefreshToken,
+	return &pb.LoginResponse{
+		AccessToken:  token,
+		RefreshToken: refreshToken,
 	}, nil
 }
 
-func (s *Server) HealthCheck(ctx context.Context, req *pb.HealthRequest) (*pb.HealthResponse, error) {
-	// Verifica la connessione al database (esempio con Postgres)
-	if err := s.authService.HealthCheck(); err != nil {
-		return nil, status.Error(codes.Internal, "service unhealthy")
+func (s *Server) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
+	newAccessToken, err := s.authService.Refresh(req.RefreshToken)
+	if err != nil {
+		return nil, err
 	}
-	return &pb.HealthResponse{Status: "OK"}, nil
+	return &pb.RefreshTokenResponse{
+		AccessToken: newAccessToken,
+	}, nil
+}
+
+func (s *Server) HealthCheck(ctx context.Context, req *pb.HealthzRequest) (*pb.HealthzResponse, error) {
+	if err := s.authService.HealthCheck(ctx); err != nil {
+		return nil, err
+	}
+	return &pb.HealthzResponse{
+		Status: "OK",
+	}, nil
 }

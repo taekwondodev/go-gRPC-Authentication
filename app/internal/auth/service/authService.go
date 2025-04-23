@@ -7,7 +7,6 @@ import (
 	"context"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -16,7 +15,7 @@ type AuthService interface {
 	Register(username, email, password, role string) (uuid.UUID, error)
 	Login(username, password string) (string, string, error)
 	Refresh(refreshToken string) (string, error)
-	HealthCheck() (string, error)
+	HealthCheck(ctx context.Context) error
 }
 
 type AuthServiceImpl struct {
@@ -85,22 +84,19 @@ func (s *AuthServiceImpl) Refresh(refreshToken string) (string, error) {
 	return accessToken, nil
 }
 
-func (s *AuthServiceImpl) HealthCheck() (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
+func (s *AuthServiceImpl) HealthCheck(ctx context.Context) error {
 	if err := config.Db.PingContext(ctx); err != nil {
 		switch {
 		case isSSLerror(err):
-			return "", customerrors.ErrDbSSLHandshakeFailed
+			return customerrors.ErrDbSSLHandshakeFailed
 		case ctx.Err() == context.DeadlineExceeded:
-			return "", customerrors.ErrDbTimeout
+			return customerrors.ErrDbTimeout
 		default:
-			return "", customerrors.ErrDbUnreacheable
+			return customerrors.ErrDbUnreacheable
 		}
 	}
 
-	return "OK", nil
+	return nil
 }
 
 func isValidEmail(email string) bool {

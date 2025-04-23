@@ -1,7 +1,7 @@
 # go-REST-Authentication
 [![Go](https://img.shields.io/badge/Go-1.24.1+-00ADD8?logo=go)](https://golang.org)
 
-Auth Microservice/Template for REST API in Go with JWT, Docker, PostgreSQL and End-to-End TLS Encryption
+Auth Microservice gRPC in Go with JWT, mTLS, Docker, PostgreSQL and End-to-End TLS Encryption
 
 ## API Endpoints
 
