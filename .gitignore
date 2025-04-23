@@ -1,0 +1,6 @@
+.env*
+.DS_Store
+postgres/ssl/*.key
+postgres/ssl/*.csr
+postgres/ssl/*.srl
+docker-compose-dev.yml

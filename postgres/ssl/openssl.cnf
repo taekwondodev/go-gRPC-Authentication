@@ -1,0 +1,13 @@
+[req]
+default_bits       = 2048
+distinguished_name = req_distinguished_name
+req_extensions     = req_ext
+prompt             = no
+
+[req_distinguished_name]
+commonName = postgres  # Must match DB HOST
+
+[req_ext]
+subjectAltName = DNS:postgres  # Service name in Compose
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth

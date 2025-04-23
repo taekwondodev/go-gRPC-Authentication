@@ -1,0 +1,73 @@
+name: Cleanup Old Releases
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get all tags and clean up old ones
+        env:
+          PACKAGE_NAME: "go-rest-auth"
+          KEEP: 3
+        run: |
+          sudo apt-get -yq install jq
+
+          echo "Cleaning up GHCR tags..."
+          GHCR_TAGS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/users/${{ github.repository_owner }}/packages/container/$PACKAGE_NAME/versions" | \
+            jq -r '.[] | select(.metadata.container.tags | length > 0) | .metadata.container.tags[] + " " + (.id|tostring)')
+
+          VERSION_TAGS=$(echo "$GHCR_TAGS" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+ ' | sort -V -r)
+
+          OLD_GHCR_TAGS=$(echo "$VERSION_TAGS" | tail -n +$(($KEEP + 1)))
+
+          if [ -n "$OLD_GHCR_TAGS" ]; then
+            echo "Deleting old GHCR tags:"
+            echo "$OLD_GHCR_TAGS"
+            while read -r line; do
+              tag=$(echo $line | awk '{print $1}')
+              id=$(echo $line | awk '{print $2}')
+              echo "Deleting $tag (ID: $id) from GHCR"
+              curl -X DELETE \
+                -H "Accept: application/vnd.github.v3+json" \
+                -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                "https://api.github.com/users/${{ github.repository_owner }}/packages/container/$PACKAGE_NAME/versions/$id"
+            done <<< "$OLD_GHCR_TAGS"
+          else
+            echo "No old GHCR tags to delete"
+          fi
+
+          echo "Cleaning up Git tags..."
+          ALL_GIT_TAGS=$(git tag -l "v*" | sort -V -r)
+          OLD_GIT_TAGS=$(echo "$ALL_GIT_TAGS" | tail -n +$(($KEEP + 1)))
+
+          if [ -n "$OLD_GIT_TAGS" ]; then
+            echo "Deleting old Git tags:"
+            echo "$OLD_GIT_TAGS"
+            for tag in $OLD_GIT_TAGS; do
+              echo "Deleting $tag from Git"
+              git tag -d $tag  # Elimina localmente
+              git push origin :refs/tags/$tag  # Elimina su GitHub
+            done
+          else
+            echo "No old Git tags to delete"
+          fi
