@@ -1,10 +1,9 @@
 package middleware
 
 import (
-	customerrors "backend/customErrors"
+	customerrors "app/internal/customErrors"
 	"context"
 	"log"
-	"net/http"
 	"time"
 
 	"google.golang.org/grpc"
@@ -17,27 +16,15 @@ func LoggingInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo
 	resp, err := handler(ctx, req)
 
 	duration := time.Since(start)
-	log.Printf("Finished %s in %v", info.FullMethod, duration)
+	code := 0
+	if err != nil {
+		code = customerrors.GetCode(err)
+	}
+
+	log.Printf(
+		"Completed: %s | Code: %d | Duration: %v",
+		info.FullMethod, code, duration,
+	)
 
 	return resp, err
-}
-
-func LoggingMiddleware(next HandlerFunc) HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) error {
-		start := time.Now()
-		log.Printf("Started %s %s", r.Method, r.URL.Path)
-
-		err := next(w, r)
-
-		duration := time.Since(start)
-		status := http.StatusOK
-		if err != nil {
-			status = customerrors.GetStatus(err)
-		}
-
-		log.Printf("Completed %s %s | Status: %d | Duration: %v",
-			r.Method, r.URL.Path, status, duration)
-
-		return err
-	}
 }
