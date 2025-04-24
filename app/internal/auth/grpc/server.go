@@ -36,7 +36,7 @@ func (s *Server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 	}, nil
 }
 
-func (s *Server) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
+func (s *Server) Refresh(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
 	newAccessToken, err := s.authService.Refresh(req.RefreshToken)
 	if err != nil {
 		return nil, err
@@ -46,7 +46,20 @@ func (s *Server) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) 
 	}, nil
 }
 
-func (s *Server) HealthCheck(ctx context.Context, req *pb.HealthzRequest) (*pb.HealthzResponse, error) {
+func (s *Server) Validate(ctx context.Context, req *pb.ValidateTokenRequest) (*pb.ValidateTokenResponse, error) {
+	claims, err := s.authService.Validate(req.AccessToken)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.ValidateTokenResponse{
+		Sub:      claims.Subject,
+		Username: claims.Username,
+		Email:    claims.Email,
+		Role:     claims.Role,
+	}, nil
+}
+
+func (s *Server) Healthz(ctx context.Context, req *pb.HealthzRequest) (*pb.HealthzResponse, error) {
 	if err := s.authService.HealthCheck(ctx); err != nil {
 		return nil, err
 	}

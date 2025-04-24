@@ -3,7 +3,7 @@ services:
     image: ghcr.io/taekwondodev/go-rest-auth:latest
     container_name: auth_service
     ports:
-      - "80:80"
+      - "50051:50051"
     networks:
       - public_network
       - private_network

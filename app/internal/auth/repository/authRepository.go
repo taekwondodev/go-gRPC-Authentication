@@ -3,7 +3,9 @@ package repository
 import (
 	customerrors "app/internal/customErrors"
 	"app/internal/models"
+	"context"
 	"database/sql"
+	"strings"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -13,6 +15,7 @@ type UserRepository interface {
 	CheckUserExists(username, email string) error
 	SaveUser(username, password, email, role string) (uuid.UUID, error)
 	GetUserByCredentials(username, password string) (*models.User, error)
+	Healtz(ctx context.Context) error
 }
 
 type UserRepositoryImpl struct {
@@ -102,4 +105,25 @@ func (r *UserRepositoryImpl) GetUserByCredentials(username, password string) (*m
 	}
 
 	return &user, nil
+}
+
+func (r *UserRepositoryImpl) Healtz(ctx context.Context) error {
+	if err := r.db.PingContext(ctx); err != nil {
+		switch {
+		case isSSLerror(err):
+			return customerrors.ErrDbSSLHandshakeFailed
+		case ctx.Err() == context.DeadlineExceeded:
+			return customerrors.ErrDbTimeout
+		default:
+			return customerrors.ErrDbUnreacheable
+		}
+	}
+
+	return nil
+}
+
+func isSSLerror(err error) bool {
+	return strings.Contains(err.Error(), "SSL") ||
+		strings.Contains(err.Error(), "certificate") ||
+		strings.Contains(err.Error(), "TLS")
 }

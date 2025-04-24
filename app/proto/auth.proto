@@ -7,8 +7,8 @@ option go_package = "go-gRPC-Authentication/backend/proto/auth;auth";
 service AuthService {
     rpc Register(RegisterRequest) returns (RegisterResponse);
     rpc Login(LoginRequest) returns (LoginResponse);
-    rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
-    rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+    rpc Refresh(RefreshTokenRequest) returns (RefreshTokenResponse);
+    rpc Validate(ValidateTokenRequest) returns (ValidateTokenResponse);
     rpc Healthz(HealthzRequest) returns (HealthzResponse);
 }
 
@@ -49,6 +49,7 @@ message ValidateTokenResponse {
     string sub = 1;
     string username = 2;
     string email = 3;
+    string role = 4;
 }
 
 message HealthzRequest {}

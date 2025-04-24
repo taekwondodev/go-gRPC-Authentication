@@ -15,6 +15,7 @@ type AuthService interface {
 	Register(username, email, password, role string) (uuid.UUID, error)
 	Login(username, password string) (string, string, error)
 	Refresh(refreshToken string) (string, error)
+	Validate(accessToken string) (*config.Claims, error)
 	HealthCheck(ctx context.Context) error
 }
 
@@ -71,7 +72,7 @@ func (s *AuthServiceImpl) Refresh(refreshToken string) (string, error) {
 		return "", customerrors.ErrBadRequest
 	}
 
-	claims, err := s.jwt.ValidateJWT(refreshToken)
+	claims, err := s.Validate(refreshToken)
 	if err != nil {
 		return "", err
 	}
@@ -84,19 +85,21 @@ func (s *AuthServiceImpl) Refresh(refreshToken string) (string, error) {
 	return accessToken, nil
 }
 
-func (s *AuthServiceImpl) HealthCheck(ctx context.Context) error {
-	if err := config.Db.PingContext(ctx); err != nil {
-		switch {
-		case isSSLerror(err):
-			return customerrors.ErrDbSSLHandshakeFailed
-		case ctx.Err() == context.DeadlineExceeded:
-			return customerrors.ErrDbTimeout
-		default:
-			return customerrors.ErrDbUnreacheable
-		}
+func (s *AuthServiceImpl) Validate(accessToken string) (*config.Claims, error) {
+	if accessToken == "" {
+		return nil, customerrors.ErrBadRequest
 	}
 
-	return nil
+	claims, err := s.jwt.ValidateJWT(accessToken)
+	if err != nil {
+		return nil, err
+	}
+
+	return claims, nil
+}
+
+func (s *AuthServiceImpl) HealthCheck(ctx context.Context) error {
+	return s.repo.Healtz(ctx)
 }
 
 func isValidEmail(email string) bool {
@@ -107,10 +110,4 @@ func isValidPassword(password string) bool {
 	return len(password) >= 8 &&
 		strings.ContainsAny(password, "0123456789") &&
 		strings.ContainsAny(password, "!@#$%^&*()_+")
-}
-
-func isSSLerror(err error) bool {
-	return strings.Contains(err.Error(), "SSL") ||
-		strings.Contains(err.Error(), "certificate") ||
-		strings.Contains(err.Error(), "TLS")
 }

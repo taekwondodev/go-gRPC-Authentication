@@ -29,6 +29,6 @@ COPY --from=builder /etc/group /etc/group
 
 USER nonroot:nonroot
 
-EXPOSE 80
+EXPOSE 50051
 
 CMD ["./main"]
