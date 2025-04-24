@@ -9,3 +9,5 @@ app/Dockerfile
 .dockerignore
 migrations/
 postgres/
+app/testClient/
+setup-certs.sh
