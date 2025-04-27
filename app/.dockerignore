@@ -1,0 +1,9 @@
+.env
+.git
+.github/
+.gitignore
+Dockerfile
+.dockerignore
+internal/auth/grpc/server_test.go
+internal/auth/repository/authRepository_test.go
+internal/auth/service/authService_test.go

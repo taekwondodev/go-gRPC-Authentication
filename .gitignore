@@ -37,11 +37,3 @@ postgres/ssl/*.srl
 
 # docker dev
 docker-compose-dev.yml
-
-# server certs
-app/certs/*.key
-app/certs/*.csr
-app/certs/*.srl 
-
-# test client
-app/testClient
