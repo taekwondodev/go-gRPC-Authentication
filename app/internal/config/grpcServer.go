@@ -2,8 +2,6 @@ package config
 
 import (
 	"app/internal/interceptors"
-	"crypto/tls"
-	"crypto/x509"
 	"log"
 	"net"
 	"os"
@@ -12,37 +10,18 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 type GRPCServer struct {
 	Server          *grpc.Server
-	config          Config
+	port            string
 	shutdownTimeout time.Duration
 }
 
-type Config struct {
-	TLSCertFile string
-	TLSKeyFile  string
-	CACertFile  string
-	Port        string
-}
+const defaultPort = "50051"
 
 func NewGRPCServer() *GRPCServer {
-	cfg := Config{
-		TLSCertFile: "certs/server.crt",
-		TLSKeyFile:  "certs/server.key",
-		CACertFile:  "certs/ca.crt",
-		Port:        "50051",
-	}
-
-	creds, err := loadTLSCredentials(cfg)
-	if err != nil {
-		log.Fatalf("Failed to load TLS credentials: %v", err)
-	}
-
 	grpcServer := grpc.NewServer(
-		grpc.Creds(creds),
 		grpc.ChainUnaryInterceptor(
 			interceptors.LoggingInterceptor,
 			interceptors.ErrorInterceptor,
@@ -51,7 +30,7 @@ func NewGRPCServer() *GRPCServer {
 
 	return &GRPCServer{
 		Server:          grpcServer,
-		config:          cfg,
+		port:            defaultPort,
 		shutdownTimeout: 10 * time.Second,
 	}
 }
@@ -91,12 +70,12 @@ func (s *GRPCServer) StartWithGracefulShutdown() {
 }
 
 func (s *GRPCServer) start() error {
-	lis, err := net.Listen("tcp", ":"+s.config.Port)
+	lis, err := net.Listen("tcp", ":"+s.port)
 	if err != nil {
 		return err
 	}
 
-	log.Printf("Server gRPC is listening on :%s", s.config.Port)
+	log.Printf("Server gRPC is listening on :%s", s.port)
 	return s.Server.Serve(lis)
 }
 
@@ -115,30 +94,4 @@ func (s *GRPCServer) GracefulShutdown(timeout time.Duration) {
 	case <-stopped:
 		timer.Stop()
 	}
-}
-
-func loadTLSCredentials(cfg Config) (credentials.TransportCredentials, error) {
-	serverCert, err := tls.LoadX509KeyPair(cfg.TLSCertFile, cfg.TLSKeyFile)
-	if err != nil {
-		return nil, err
-	}
-
-	caCert, err := os.ReadFile(cfg.CACertFile)
-	if err != nil {
-		return nil, err
-	}
-
-	certPool := x509.NewCertPool()
-	if !certPool.AppendCertsFromPEM(caCert) {
-		return nil, err
-	}
-
-	config := &tls.Config{
-		Certificates: []tls.Certificate{serverCert},
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		ClientCAs:    certPool,
-		MinVersion:   tls.VersionTLS13,
-	}
-
-	return credentials.NewTLS(config), nil
 }
