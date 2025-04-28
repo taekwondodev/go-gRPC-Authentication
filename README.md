@@ -1,112 +1,152 @@
-# go-REST-Authentication
+# go-gRPC-Authentication
 [![Go](https://img.shields.io/badge/Go-1.24.2+-00ADD8?logo=go)](https://golang.org)
 
-Auth Microservice gRPC in Go with JWT, Docker, PostgreSQL and End-to-End TLS Encryption
-
-## API Endpoints
-
-[![Open in Swagger Editor](https://img.shields.io/badge/Swagger-Editor-%23Clojure?style=for-the-badge&logo=swagger)](https://editor.swagger.io/?url=https://raw.githubusercontent.com/taekwondodev/go-REST-Authentication/master/backend/api/openapi.yaml)
-
-- [Raw OpenAPI Spec](./backend/api/openapi.yaml)
+Authentication Microservice gRPC in Go with JWT, Docker, PostgreSQL and End-to-End Encryption
 
 ## Features
+- gRPC API with Protocol Buffers
 - JWT Authentication (Access + Refresh tokens)
 - PostgreSQL with TLS 1.3 (verify-full mode)  
 - Docker with internal network isolation 
 - Flyway migrations with certificate verification  
 - Unit testing  
 - Hardware-grade encryption for database connections
+- gRPC interceptors for error handling and logging
 
 ## Requirements
 
 - Install [Docker](https://docs.docker.com/engine/install/)
-- Install [Go](https://go.dev/dl/) (optional, only for local development)
+
+**Note: For local development also:**
+
+- Install Go:
+
+```bash
+# Linux
+sudo apt install golang-go
+
+# MacOS
+brew install go
+```
+
+- Install protoc compiler:
+
+```bash
+# Linux
+apt install -y protobuf-compiler
+  
+# MacOS
+brew install protobuf
+```
+
+- Install go protobuf plugins:
+
+```bash
+go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
+
+# Add the PATH in the configuration terminal file
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
+
+## gRPC Services
+
+The service exposes the following gRPC methods:
+
+```protobuf
+service AuthService {
+  rpc Register (RegisterRequest) returns (AuthResponse);
+  rpc Login (LoginRequest) returns (AuthResponse);
+  rpc RefreshToken (RefreshTokenRequest) returns (AuthResponse);
+  rpc ValidateToken (ValidateTokenRequest) returns (ValidateTokenResponse);
+  rpc Healthz(HealthzRequest) returns (HealthzResponse);
+}
+```
+
+For complete proto definition see: proto/auth.proto
 
 ## Usage
 
-### Microservice
+1. Download the docker-compose.yml and the configuration script files:
 
-1. Download the docker-compose.yml and the migration script files:
   ```bash
   # Create a directory for the project
   mkdir auth && cd auth
 
   # Download the compose file
-  curl -O https://raw.githubusercontent.com/taekwondodev/go-REST-Authentication/microservice/docker-compose.yml
+  curl -O https://raw.githubusercontent.com/taekwondodev/go-gRPC-Authentication/master/docker-compose.yml
 
-  # Create the migration directory
-  mkdir -p migrations && cd migrations
-
-  # Download the script sql file
-  curl -O https://raw.githubusercontent.com/taekwondodev/go-REST-Authentication/microservice/migrations/V1__Create_User_table.sql
+  # Download the setup.sh file
+  curl -O https://raw.githubusercontent.com/taekwondodev/go-gRPC-Authentication/master/setup.sh
   ```
   Or
 
-  Clone the project:
+  Clone the project (local development):
    
   ```bash
-  git clone https://github.com/taekwondodev/go-REST-Template.git
+  git clone https://github.com/taekwondodev/go-gRPC-Authentication.git
   ```
 
-### Template
+## Configuration
 
-  Clone the project:
+Run the command in the main directory:
 
-  ```bash
-  git clone https://github.com/taekwondodev/go-REST-Template.git
-  ```
+```bash
+./setup.sh
+```
 
-### Configuration
-
-### Deployment
+## Deployment
 
 Run the command in the main directory:
    
-  ```bash
-  docker compose up -d
-  ```
+```bash
+docker compose up -d
+```
 
 ## Project Structure
 
 ```
-go-REST-template/
-├── backend/
-│   ├── api/             # Handle Server and Router Configs
-│   ├── config/          # Application configuration (JWT, Database, Environment Variables)
-│   ├── controller/      # Handle HTTP Requests
-│   ├── customErrors/    # Handle Custom Errors
-│   ├── dto/             # Data Transfer Objects (Request and Response)
-│   ├── middleware/      # Middleware
-│   ├── models/          # Database Models
-│   ├── repository/      # Handle Database Interaction
-│   ├── service/         # Handle Controller Business Logic
-│   ├── Dockerfile       
-│   ├── go.mod           
-│   ├── go.sum           
-│   ├── main.go  
-├── migrations/          # SQL Script Migrations
-├── postgres/            # SSL Certificates  
-├── test/                # Unit Testing    
-├── Dockerfile.test        
+go-gRPC-Authentication/
+├── app/
+│   ├── gen/                                  # Generated Protobuf files
+|   |   ├── auth_grpc.pb.go
+|   |   ├── auth.pb.go
+│   ├── internal/
+|   |   ├── auth/
+|   |   |   ├── grpc/                         # gRPC Handlers
+|   |   |   |   ├── server.go
+|   |   |   |   ├── server_test.go
+|   |   |   ├── repository/                   # Database Interaction
+|   |   |   |   ├── authRepository.go
+|   |   |   |   ├── authRepository_test.go
+|   |   |   ├── service/                      # Business Logic
+|   |   |   |   ├── authService.go
+|   |   |   |   ├── authService_test.go
+|   |   ├── config/                           # Configuration
+|   |   |   ├── grpcServer.go
+|   |   |   ├── jwt.go
+|   |   |   ├── postgres.go
+|   |   ├── customErrors/                     # Custom Errors
+|   |   |   ├── errors.go
+|   |   ├── interceptors/                     # gRPC Interceptors
+|   |   |   ├── handleErrors.go
+|   |   |   ├── logging.go
+|   |   ├── models/                           # Database Models
+|   |   |   ├── user.go
+|   ├── proto/
+|   |   ├── auth.proto                        # Protocol buffers definition
+|   ├── Dockerfile
+|   ├── go.mod
+|   ├── main.go
+├── migrations/                               # SQL Script Migrations
+├── postgres/                                 # SSL Certificates   
 ├── docker-compose.yml   
 ```
-
-**Note**: If you run this repo as a Microservice you can skip this.
 
 ## Testing
 
 To test the repository with automated test run the command in the main directory:
 
 ```bash
-# Build the image
-docker build -f Dockerfile.test -t myapp-test .
-
-# Execute
-docker run --rm myapp-test
+go
 ```
-
-**Note**: If you run this repo as a Microservice you can skip this.
-
-## Acknowledgments
-
-If you want to use this template, mention me in the README file or leave me a ⭐. Thank you!
