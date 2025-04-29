@@ -31,10 +31,7 @@ app/go.work.sum
 app/gen/**
 
 # cert postgres
-postgres/ssl/*.key
-postgres/ssl/*.csr
-postgres/ssl/*.srl
-postgres/ssl/openssl.cnf
+postgres/ssl/
 
 # docker dev
 docker-compose-dev.yml

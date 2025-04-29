@@ -65,7 +65,7 @@ cd ../..
 echo -e "${GREEN}[2/4] Setting up migrations...${NC}"
 mkdir -p migrations
 
-cat > migrations/V1__Create_User_table.sql <<EOF
+cat > migrations/V1__Create_User_table.sql <<'EOF'
 CREATE TABLE users (
     sub UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username VARCHAR(50) NOT NULL UNIQUE CHECK (LENGTH(username) >= 3),
