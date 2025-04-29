@@ -3,14 +3,12 @@ package repository_test
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"testing"
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 
 	"app/internal/auth/repository"
@@ -18,19 +16,25 @@ import (
 	"app/internal/models"
 )
 
+const (
+	testUsername  = "testuser"
+	testPassword  = "password123"
+	testEmail     = "test@example.com"
+	testRole      = "user"
+	databaseError = "Database error"
+)
+
+var testUUID = uuid.New()
+
 type testDependencies struct {
 	repo    *repository.UserRepositoryImpl
 	mock    sqlmock.Sqlmock
 	cleanup func()
 }
 
-const newEmail = "new@test.com"
-const databaseError = "Database error"
-const dbError = "db error"
-
 func setupTest(t *testing.T) *testDependencies {
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	require.NoError(t, err, "Error mocking DB")
+	assert.NoError(t, err)
 
 	repo := repository.NewUserRepository(db).(*repository.UserRepositoryImpl)
 
@@ -76,8 +80,8 @@ func TestCheckUserExists(t *testing.T) {
 	}{
 		{
 			name:     "User does not exist",
-			username: "newuser",
-			email:    newEmail,
+			username: testUsername,
+			email:    testEmail,
 			mockSetup: func(m sqlmock.Sqlmock) {
 				mockExistsQuery(m, false, false)
 			},
@@ -85,8 +89,8 @@ func TestCheckUserExists(t *testing.T) {
 		},
 		{
 			name:     "Username exists",
-			username: "existing",
-			email:    newEmail,
+			username: testUsername,
+			email:    testEmail,
 			mockSetup: func(m sqlmock.Sqlmock) {
 				mockExistsQuery(m, true, false)
 			},
@@ -94,24 +98,33 @@ func TestCheckUserExists(t *testing.T) {
 		},
 		{
 			name:     "Email exists",
-			username: "newuser",
-			email:    "existing@test.com",
+			username: testUsername,
+			email:    testEmail,
 			mockSetup: func(m sqlmock.Sqlmock) {
 				mockExistsQuery(m, false, true)
 			},
 			expectedError: customerrors.ErrEmailAlreadyExists,
 		},
 		{
+			name:     "Username and email exists",
+			username: testUsername,
+			email:    testEmail,
+			mockSetup: func(m sqlmock.Sqlmock) {
+				mockExistsQuery(m, true, true)
+			},
+			expectedError: customerrors.ErrUsernameAlreadyExists,
+		},
+		{
 			name:     databaseError,
-			username: "user",
-			email:    "email@test.com",
+			username: testUsername,
+			email:    testEmail,
 			mockSetup: func(m sqlmock.Sqlmock) {
 				m.ExpectQuery(
 					`SELECT EXISTS(SELECT 1 FROM users WHERE username = $1) AS username_exists,` +
 						`EXISTS(SELECT 1 FROM users WHERE email = $2) AS email_exists`,
-				).WillReturnError(errors.New(dbError))
+				).WillReturnError(customerrors.ErrInternalServer)
 			},
-			expectedError: errors.New(dbError),
+			expectedError: customerrors.ErrInternalServer,
 		},
 	}
 
@@ -139,8 +152,6 @@ func TestCheckUserExists(t *testing.T) {
 func TestSaveUser(t *testing.T) {
 	t.Parallel()
 
-	testUUID := uuid.New()
-	validPassword := "validPassword123"
 	invalidPassword := string(make([]byte, 73))
 
 	testCases := []struct {
@@ -155,15 +166,15 @@ func TestSaveUser(t *testing.T) {
 	}{
 		{
 			name:     "Success case",
-			username: "newuser",
-			password: validPassword,
-			email:    newEmail,
-			role:     "user",
+			username: testUsername,
+			password: testPassword,
+			email:    testEmail,
+			role:     testRole,
 			mockSetup: func(m sqlmock.Sqlmock) {
 				m.ExpectQuery(
 					`INSERT INTO users (username, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING sub`,
 				).WithArgs(
-					"newuser", newEmail, sqlmock.AnyArg(), "user",
+					testUsername, testEmail, sqlmock.AnyArg(), testRole,
 				).WillReturnRows(
 					sqlmock.NewRows([]string{"sub"}).AddRow(testUUID),
 				)
@@ -182,19 +193,19 @@ func TestSaveUser(t *testing.T) {
 		},
 		{
 			name:     databaseError,
-			username: "newuser",
-			password: validPassword,
-			email:    newEmail,
-			role:     "user",
+			username: testUsername,
+			password: testPassword,
+			email:    testEmail,
+			role:     testRole,
 			mockSetup: func(m sqlmock.Sqlmock) {
 				m.ExpectQuery(
 					`INSERT INTO users (username, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING sub`,
 				).WithArgs(
-					"newuser", newEmail, sqlmock.AnyArg(), "user",
-				).WillReturnError(errors.New(dbError))
+					testUsername, testEmail, sqlmock.AnyArg(), testRole,
+				).WillReturnError(customerrors.ErrInternalServer)
 			},
 			expectedUUID:  uuid.Nil,
-			expectedError: errors.New(dbError),
+			expectedError: customerrors.ErrInternalServer,
 		},
 	}
 
@@ -225,17 +236,14 @@ func TestGetUserByCredentials(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now().UTC()
-	testUUID := uuid.New()
-	correctPassword := "correctPassword123"
-	wrongPassword := "wrongPassword"
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(correctPassword), bcrypt.DefaultCost)
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(testPassword), bcrypt.DefaultCost)
 
 	testUser := models.User{
 		Sub:          testUUID,
-		Username:     "testuser",
-		Email:        "test@test.com",
+		Username:     testUsername,
+		Email:        testEmail,
 		PasswordHash: string(hashedPassword),
-		Role:         "user",
+		Role:         testRole,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 		IsActive:     true,
@@ -251,55 +259,55 @@ func TestGetUserByCredentials(t *testing.T) {
 	}{
 		{
 			name:     "Success case",
-			username: "testuser",
-			password: correctPassword,
+			username: testUsername,
+			password: testPassword,
 			mockSetup: func(m sqlmock.Sqlmock) {
 				m.ExpectQuery(
 					`SELECT sub, username, email, password_hash, role, created_at, updated_at, is_active ` +
 						`FROM users WHERE username = $1`,
-				).WithArgs("testuser").WillReturnRows(mockUserRow(m, testUser))
+				).WithArgs(testUsername).WillReturnRows(mockUserRow(m, testUser))
 			},
 			expectedUser:  &testUser,
 			expectedError: nil,
 		},
 		{
 			name:     "User not found",
-			username: "nonexistent",
-			password: "anypassword",
+			username: testUsername,
+			password: testPassword,
 			mockSetup: func(m sqlmock.Sqlmock) {
 				m.ExpectQuery(
 					`SELECT sub, username, email, password_hash, role, created_at, updated_at, is_active ` +
 						`FROM users WHERE username = $1`,
-				).WithArgs("nonexistent").WillReturnError(sql.ErrNoRows)
+				).WithArgs(testUsername).WillReturnError(sql.ErrNoRows)
 			},
 			expectedUser:  nil,
 			expectedError: customerrors.ErrUserNotFound,
 		},
 		{
 			name:     "Wrong password",
-			username: "testuser",
-			password: wrongPassword,
+			username: testUsername,
+			password: testPassword,
 			mockSetup: func(m sqlmock.Sqlmock) {
 				m.ExpectQuery(
 					`SELECT sub, username, email, password_hash, role, created_at, updated_at, is_active ` +
 						`FROM users WHERE username = $1`,
-				).WithArgs("testuser").WillReturnRows(mockUserRow(m, testUser))
+				).WithArgs(testUsername).WillReturnRows(mockUserRow(m, testUser))
 			},
 			expectedUser:  nil,
 			expectedError: customerrors.ErrInvalidCredentials,
 		},
 		{
 			name:     databaseError,
-			username: "testuser",
-			password: correctPassword,
+			username: testUsername,
+			password: testPassword,
 			mockSetup: func(m sqlmock.Sqlmock) {
 				m.ExpectQuery(
 					`SELECT sub, username, email, password_hash, role, created_at, updated_at, is_active ` +
 						`FROM users WHERE username = $1`,
-				).WithArgs("testuser").WillReturnError(errors.New(dbError))
+				).WithArgs("testuser").WillReturnError(customerrors.ErrInternalServer)
 			},
 			expectedUser:  nil,
-			expectedError: errors.New(dbError),
+			expectedError: customerrors.ErrInternalServer,
 		},
 	}
 
@@ -347,7 +355,7 @@ func TestHealtz(t *testing.T) {
 			name: "SSL error",
 			ctx:  context.Background(),
 			mockSetup: func(m sqlmock.Sqlmock) {
-				m.ExpectPing().WillReturnError(errors.New("SSL connection failed"))
+				m.ExpectPing().WillReturnError(customerrors.ErrDbSSLHandshakeFailed)
 			},
 			expectedError: customerrors.ErrDbSSLHandshakeFailed,
 		},
@@ -360,7 +368,7 @@ func TestHealtz(t *testing.T) {
 				return ctx
 			}(),
 			mockSetup: func(m sqlmock.Sqlmock) {
-				m.ExpectPing().WillReturnError(context.DeadlineExceeded)
+				m.ExpectPing().WillReturnError(customerrors.ErrDbTimeout)
 			},
 			expectedError: customerrors.ErrDbTimeout,
 		},
@@ -368,7 +376,7 @@ func TestHealtz(t *testing.T) {
 			name: "Generic error",
 			ctx:  context.Background(),
 			mockSetup: func(m sqlmock.Sqlmock) {
-				m.ExpectPing().WillReturnError(errors.New("connection refused"))
+				m.ExpectPing().WillReturnError(customerrors.ErrDbUnreacheable)
 			},
 			expectedError: customerrors.ErrDbUnreacheable,
 		},

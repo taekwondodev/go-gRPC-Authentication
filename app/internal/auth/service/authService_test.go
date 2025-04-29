@@ -2,7 +2,6 @@ package service_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -11,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 
 	"app/internal/auth/repository"
 	"app/internal/auth/service"
@@ -19,6 +17,18 @@ import (
 	customerrors "app/internal/customErrors"
 	"app/internal/models"
 )
+
+const (
+	testUsername      = "testuser"
+	testPassword      = "password123"
+	testEmail         = "test@example.com"
+	testRole          = "user"
+	databaseError     = "Database error"
+	validRefreshToken = "valid-refresh-token"
+	invalidToken      = "invalid-token"
+)
+
+var testUUID = uuid.New()
 
 type MockToken struct {
 	mock.Mock
@@ -44,7 +54,7 @@ type authTestDeps struct {
 
 func setupAuthTest(t *testing.T) *authTestDeps {
 	db, repoMock, err := sqlmock.New()
-	require.NoError(t, err, "Failed to create sqlmock")
+	assert.NoError(t, err)
 
 	repo := repository.NewUserRepository(db).(*repository.UserRepositoryImpl)
 
@@ -66,11 +76,11 @@ func setupAuthTest(t *testing.T) *authTestDeps {
 
 func mockUser() models.User {
 	return models.User{
-		Sub:          uuid.New(),
-		Username:     "testuser",
-		Email:        "test@example.com",
-		PasswordHash: "$2a$10$fakehash",
-		Role:         "user",
+		Sub:          testUUID,
+		Username:     testUsername,
+		Email:        testEmail,
+		PasswordHash: testPassword,
+		Role:         testRole,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 		IsActive:     true,
@@ -79,20 +89,15 @@ func mockUser() models.User {
 
 func mockClaims() *config.Claims {
 	return &config.Claims{
-		Username: "testuser",
-		Email:    "test@example.com",
-		Role:     "user",
+		Username: testUsername,
+		Email:    testEmail,
+		Role:     testRole,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   uuid.New().String(),
+			Subject:   testUUID.String(),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
 		},
 	}
 }
-
-const newEmail = "new@example.com"
-const validPassword = "ValidPass123!"
-const validRefreshToken = "valid-refresh-token"
-const invalidToken = "invalid-token"
 
 func TestRegister(t *testing.T) {
 	t.Parallel()
@@ -109,28 +114,28 @@ func TestRegister(t *testing.T) {
 	}{
 		{
 			name:     "Successful registration",
-			username: "newuser",
-			email:    newEmail,
-			password: validPassword,
-			role:     "user",
+			username: testUsername,
+			email:    testEmail,
+			password: testPassword,
+			role:     testRole,
 			mockSetup: func(d *authTestDeps) {
 				d.repoMock.ExpectQuery(
 					`SELECT EXISTS\(SELECT 1 FROM users WHERE username = \$1\) AS username_exists,`+
 						`EXISTS\(SELECT 1 FROM users WHERE email = \$2\) AS email_exists`,
-				).WithArgs("newuser", newEmail).
+				).WithArgs(testUsername, testEmail).
 					WillReturnRows(sqlmock.NewRows([]string{"username_exists", "email_exists"}).AddRow(false, false))
 
 				d.repoMock.ExpectQuery(
 					`INSERT INTO users \(username, email, password_hash, role\) VALUES \(\$1, \$2, \$3, \$4\) RETURNING sub`,
-				).WithArgs("newuser", newEmail, mock.Anything, "user").
-					WillReturnRows(sqlmock.NewRows([]string{"sub"}).AddRow(uuid.New()))
+				).WithArgs(testUsername, testEmail, mock.Anything, testRole).
+					WillReturnRows(sqlmock.NewRows([]string{"sub"}).AddRow(testUUID))
 			},
 			expectedError: nil,
 		},
 		{
 			name:     "Invalid email format",
-			email:    "invalid-email",
-			password: validPassword,
+			email:    testEmail,
+			password: testPassword,
 			mockSetup: func(d *authTestDeps) {
 				// No DB expectations for invalid email
 			},
@@ -138,8 +143,8 @@ func TestRegister(t *testing.T) {
 		},
 		{
 			name:     "Invalid password format",
-			email:    "valid@example.com",
-			password: "short",
+			email:    testEmail,
+			password: testPassword,
 			mockSetup: func(d *authTestDeps) {
 				// No DB expectations for invalid password
 			},
@@ -147,38 +152,38 @@ func TestRegister(t *testing.T) {
 		},
 		{
 			name:     "Username already exists",
-			username: "existinguser",
-			email:    newEmail,
-			password: validPassword,
-			role:     "user",
+			username: testUsername,
+			email:    testEmail,
+			password: testPassword,
+			role:     testRole,
 			mockSetup: func(d *authTestDeps) {
 				d.repoMock.ExpectQuery(
 					`SELECT EXISTS\(SELECT 1 FROM users WHERE username = \$1\) AS username_exists,`+
 						`EXISTS\(SELECT 1 FROM users WHERE email = \$2\) AS email_exists`,
-				).WithArgs("existinguser", newEmail).
+				).WithArgs(testUsername, testEmail).
 					WillReturnRows(sqlmock.NewRows([]string{"username_exists", "email_exists"}).AddRow(true, false))
 			},
 			expectedError: customerrors.ErrUsernameAlreadyExists,
 		},
 		{
 			name:     "Database error on save",
-			username: "newuser",
-			email:    newEmail,
-			password: validPassword,
-			role:     "user",
+			username: testUsername,
+			email:    testEmail,
+			password: testPassword,
+			role:     testRole,
 			mockSetup: func(d *authTestDeps) {
 				d.repoMock.ExpectQuery(
 					`SELECT EXISTS\(SELECT 1 FROM users WHERE username = \$1\) AS username_exists,`+
 						`EXISTS\(SELECT 1 FROM users WHERE email = \$2\) AS email_exists`,
-				).WithArgs("newuser", newEmail).
+				).WithArgs(testUsername, testEmail).
 					WillReturnRows(sqlmock.NewRows([]string{"username_exists", "email_exists"}).AddRow(false, false))
 
 				d.repoMock.ExpectQuery(
 					`INSERT INTO users \(username, email, password_hash, role\) VALUES \(\$1, \$2, \$3, \$4\) RETURNING sub`,
-				).WithArgs("newuser", newEmail, mock.Anything, "user").
-					WillReturnError(errors.New("database error"))
+				).WithArgs(testUsername, testEmail, mock.Anything, testRole).
+					WillReturnError(customerrors.ErrInternalServer)
 			},
-			expectedError: errors.New("database error"),
+			expectedError: customerrors.ErrInternalServer,
 		},
 	}
 
@@ -210,8 +215,6 @@ func TestLogin(t *testing.T) {
 	t.Parallel()
 
 	testUser := mockUser()
-	accessToken := "test-access-token"
-	refreshToken := "test-refresh-token"
 
 	testCases := []struct {
 		name           string
@@ -223,13 +226,13 @@ func TestLogin(t *testing.T) {
 	}{
 		{
 			name:     "Successful login",
-			username: "testuser",
-			password: "correctpassword",
+			username: testUsername,
+			password: testPassword,
 			mockSetup: func(d *authTestDeps) {
 				d.repoMock.ExpectQuery(
 					`SELECT sub, username, email, password_hash, role, created_at, updated_at, is_active ` +
 						`FROM users WHERE username = \$1`,
-				).WithArgs("testuser").
+				).WithArgs(testUsername).
 					WillReturnRows(sqlmock.NewRows([]string{
 						"sub", "username", "email", "password_hash", "role",
 						"created_at", "updated_at", "is_active",
@@ -241,9 +244,9 @@ func TestLogin(t *testing.T) {
 
 				d.token.On("GenerateJWT",
 					testUser.Username, testUser.Email, testUser.Role, testUser.Sub).
-					Return(accessToken, refreshToken, nil)
+					Return(validRefreshToken, validRefreshToken, nil)
 			},
-			expectedTokens: []string{accessToken, refreshToken},
+			expectedTokens: []string{validRefreshToken, validRefreshToken},
 			expectedError:  nil,
 		},
 		{
@@ -257,26 +260,26 @@ func TestLogin(t *testing.T) {
 		},
 		{
 			name:     "User not found",
-			username: "nonexistent",
-			password: "anypassword",
+			username: testUsername,
+			password: testPassword,
 			mockSetup: func(d *authTestDeps) {
 				d.repoMock.ExpectQuery(
 					`SELECT sub, username, email, password_hash, role, created_at, updated_at, is_active ` +
 						`FROM users WHERE username = \$1`,
-				).WithArgs("nonexistent").
+				).WithArgs(testUsername).
 					WillReturnError(customerrors.ErrUserNotFound)
 			},
 			expectedError: customerrors.ErrUserNotFound,
 		},
 		{
 			name:     "Token generation error",
-			username: "testuser",
-			password: "correctpassword",
+			username: testUsername,
+			password: testPassword,
 			mockSetup: func(d *authTestDeps) {
 				d.repoMock.ExpectQuery(
 					`SELECT sub, username, email, password_hash, role, created_at, updated_at, is_active ` +
 						`FROM users WHERE username = \$1`,
-				).WithArgs("testuser").
+				).WithArgs(testUsername).
 					WillReturnRows(sqlmock.NewRows([]string{
 						"sub", "username", "email", "password_hash", "role",
 						"created_at", "updated_at", "is_active",
@@ -288,9 +291,9 @@ func TestLogin(t *testing.T) {
 
 				d.token.On("GenerateJWT",
 					testUser.Username, testUser.Email, testUser.Role, testUser.Sub).
-					Return("", "", errors.New("token generation failed"))
+					Return("", "", customerrors.ErrInternalServer)
 			},
-			expectedError: errors.New("token generation failed"),
+			expectedError: customerrors.ErrInternalServer,
 		},
 	}
 
@@ -327,7 +330,6 @@ func TestRefresh(t *testing.T) {
 	t.Parallel()
 
 	testClaims := mockClaims()
-	newAccessToken := "new-access-token"
 
 	testCases := []struct {
 		name          string
@@ -346,9 +348,9 @@ func TestRefresh(t *testing.T) {
 				d.token.On("GenerateJWT",
 					testClaims.Username, testClaims.Email, testClaims.Role,
 					uuid.MustParse(testClaims.Subject)).
-					Return(newAccessToken, "", nil)
+					Return(validRefreshToken, "", nil)
 			},
-			expectedToken: newAccessToken,
+			expectedToken: validRefreshToken,
 			expectedError: nil,
 		},
 		{
@@ -378,9 +380,9 @@ func TestRefresh(t *testing.T) {
 				d.token.On("GenerateJWT",
 					testClaims.Username, testClaims.Email, testClaims.Role,
 					uuid.MustParse(testClaims.Subject)).
-					Return("", "", errors.New("generation error"))
+					Return("", "", customerrors.ErrInternalServer)
 			},
-			expectedError: errors.New("generation error"),
+			expectedError: customerrors.ErrInternalServer,
 		},
 	}
 
@@ -424,9 +426,9 @@ func TestValidate(t *testing.T) {
 	}{
 		{
 			name:        "Successful validation",
-			accessToken: "valid-token",
+			accessToken: validRefreshToken,
 			mockSetup: func(d *authTestDeps) {
-				d.token.On("ValidateJWT", "valid-token").
+				d.token.On("ValidateJWT", validRefreshToken).
 					Return(testClaims, nil)
 			},
 			expectedError: nil,
@@ -450,9 +452,9 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name:        "Expired token",
-			accessToken: "expired-token",
+			accessToken: invalidToken,
 			mockSetup: func(d *authTestDeps) {
-				d.token.On("ValidateJWT", "expired-token").
+				d.token.On("ValidateJWT", invalidToken).
 					Return(nil, jwt.ErrTokenExpired)
 			},
 			expectedError: jwt.ErrTokenExpired,
@@ -502,14 +504,14 @@ func TestHealthCheck(t *testing.T) {
 		{
 			name: "Database unreachable",
 			mockSetup: func(d *authTestDeps) {
-				d.repoMock.ExpectPing().WillReturnError(errors.New("connection failed"))
+				d.repoMock.ExpectPing().WillReturnError(customerrors.ErrDbUnreacheable)
 			},
 			expectedError: customerrors.ErrDbUnreacheable,
 		},
 		{
 			name: "Context timeout",
 			mockSetup: func(d *authTestDeps) {
-				d.repoMock.ExpectPing().WillReturnError(context.DeadlineExceeded)
+				d.repoMock.ExpectPing().WillReturnError(customerrors.ErrDbTimeout)
 			},
 			expectedError: customerrors.ErrDbTimeout,
 		},
