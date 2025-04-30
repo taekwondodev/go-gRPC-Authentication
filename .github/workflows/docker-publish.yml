@@ -16,6 +16,7 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: '1.24.2'
+          cache: true
 
       - name: Install protoc
         run: |
@@ -52,16 +53,6 @@ jobs:
           path: app/gen/
           if-no-files-found: error
           retention-days: 1
-
-      - name: Cache Go modules
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/go/pkg/mod
-            ./app/go.sum
-          key: ${{ runner.os }}-go-modules-${{ hashFiles('./app/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-modules-
 
       - name: Run unit tests
         working-directory: ./app
@@ -133,5 +124,3 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/go-grpc-auth:latest
             ghcr.io/${{ github.repository_owner }}/go-grpc-auth:${{ github.ref_name }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
