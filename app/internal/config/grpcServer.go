@@ -2,6 +2,7 @@ package config
 
 import (
 	"app/internal/interceptors"
+	"flag"
 	"log"
 	"net"
 	"os"
@@ -18,9 +19,12 @@ type GRPCServer struct {
 	shutdownTimeout time.Duration
 }
 
-const defaultPort = "50051"
+var defaultPort = flag.String("port", "50051", "The gRPC server port")
 
 func NewGRPCServer() *GRPCServer {
+	if !flag.Parsed() {
+		flag.Parse()
+	}
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			interceptors.LoggingInterceptor,
@@ -30,7 +34,7 @@ func NewGRPCServer() *GRPCServer {
 
 	return &GRPCServer{
 		Server:          grpcServer,
-		port:            defaultPort,
+		port:            *defaultPort,
 		shutdownTimeout: 10 * time.Second,
 	}
 }

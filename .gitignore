@@ -11,6 +11,9 @@
 # Test binary, built with `go test -c`
 *.test
 
+# Exception for Dockerfile.test
+!app/Dockerfile.test
+
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
@@ -34,5 +37,8 @@ app/gen/**
 postgres/ssl/
 
 # docker dev
-docker-compose-dev.yml
 app/Dockerfile.dev
+docker-compose-dev.yml
+
+# test client
+app/client

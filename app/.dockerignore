@@ -32,3 +32,4 @@ Thumbs.db
 
 # test files for development build
 # !**/*_test.go
+client/

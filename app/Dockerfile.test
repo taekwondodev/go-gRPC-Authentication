@@ -1,0 +1,27 @@
+FROM golang:1.24.2 AS tester
+
+ENV GOCACHE=/tmp/go-build
+ENV GOPATH=/tmp/go
+
+RUN mkdir -p /.cache/go-build && \
+    chmod -R 777 /.cache && \
+    chmod -R 777 /go && \
+    echo "nonroot:x:1000:1000:nonroot:/:" > /etc/passwd && \
+    echo "nonroot:x:1000:" > /etc/group && \
+    chmod 644 /etc/passwd /etc/group
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+
+RUN go mod download
+
+COPY . .
+
+RUN chown -R nonroot:nonroot /app
+
+USER nonroot:nonroot
+
+EXPOSE 50051
+
+CMD ["go", "test", "-v", "-mod=readonly", "./..."]
