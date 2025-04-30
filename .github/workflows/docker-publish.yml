@@ -46,11 +46,12 @@ jobs:
            echo "and commit the changes." && exit 1)
 
       - name: Upload generated files
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: protobuf-generated
           path: app/gen/
           if-no-files-found: error
+          retention-days: 1
 
       - name: Cache Go modules
         uses: actions/cache@v3
@@ -112,10 +113,16 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download generated files
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: protobuf-generated
           path: app/gen/
+
+      - name: Verify downloaded files
+        run: |
+          ls -la app/gen/
+          [ -f app/gen/auth.pb.go ] || (echo "File auth.pb.go non trovato!" && exit 1)
+          [ -f app/gen/auth_grpc.pb.go ] || (echo "File auth_grpc.pb.go non trovato!" && exit 1)
 
       - name: Build and push
         uses: docker/build-push-action@v5
