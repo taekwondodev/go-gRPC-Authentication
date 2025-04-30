@@ -51,7 +51,7 @@ jobs:
           path: |
             ~/go/pkg/mod
             ./app/go.sum
-          key: ${{ runner.os }}-go-${{ github.workflow }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ github.workflow }}-${{ hashFiles('app/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-${{ github.workflow }}-
             ${{ runner.os }}-go-
@@ -108,10 +108,13 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ./app
+          context: .
           file: ./app/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
+          build-args: |
+            TARGETOS=linux
+            TARGETARCH=${{ matrix.arch }}
           tags: |
             ghcr.io/${{ github.repository_owner }}/go-grpc-auth:latest
             ghcr.io/${{ github.repository_owner }}/go-grpc-auth:${{ github.ref_name }}
