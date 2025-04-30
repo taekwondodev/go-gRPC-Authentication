@@ -24,7 +24,7 @@ jobs:
             ${{ runner.os }}-buildx-
 
       - name: Build test image
-        run: docker build -f app/Dockerfile.test -t myapp-test .
+        run: docker build -f Dockerfile.test -t myapp-test .
 
       - name: Run tests
         run: docker run --rm myapp-test
@@ -88,3 +88,11 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/go-grpc-auth:latest
             ghcr.io/${{ github.repository_owner }}/go-grpc-auth:${{ github.ref_name }}
+            cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+      
+      # Temp fix for buildx cache
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
