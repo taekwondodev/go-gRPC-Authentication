@@ -45,6 +45,13 @@ jobs:
            echo "  protoc --proto_path=app/proto --go_out=app/gen --go_opt=paths=source_relative --go-grpc_out=app/gen --go-grpc_opt=paths=source_relative app/proto/auth.proto" && \
            echo "and commit the changes." && exit 1)
 
+      - name: Upload generated files
+        uses: actions/upload-artifact@v3
+        with:
+          name: protobuf-generated
+          path: app/gen/
+          if-no-files-found: error
+
       - name: Cache Go modules
         uses: actions/cache@v3
         with:
@@ -103,6 +110,12 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download generated files
+        uses: actions/download-artifact@v3
+        with:
+          name: protobuf-generated
+          path: app/gen/
 
       - name: Build and push
         uses: docker/build-push-action@v5
