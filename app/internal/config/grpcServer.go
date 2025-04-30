@@ -78,20 +78,3 @@ func (s *GRPCServer) start() error {
 	log.Printf("Server gRPC is listening on :%s", s.port)
 	return s.Server.Serve(lis)
 }
-
-func (s *GRPCServer) GracefulShutdown(timeout time.Duration) {
-	stopped := make(chan struct{})
-	go func() {
-		s.Server.GracefulStop()
-		close(stopped)
-	}()
-
-	timer := time.NewTimer(timeout)
-	select {
-	case <-timer.C:
-		log.Println("Forcing shutdown...")
-		s.Server.Stop()
-	case <-stopped:
-		timer.Stop()
-	}
-}
