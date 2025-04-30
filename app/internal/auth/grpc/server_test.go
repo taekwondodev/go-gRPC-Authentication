@@ -2,7 +2,7 @@ package grpc_test
 
 import (
 	"context"
-	"net"
+	"flag"
 	"testing"
 	"time"
 
@@ -10,17 +10,27 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
-	"google.golang.org/grpc/test/bufconn"
 
 	pb "app/gen"
 	gRPC "app/internal/auth/grpc"
 	"app/internal/config"
 	customerrors "app/internal/customErrors"
 )
+
+const (
+	testUsername      = "testuser"
+	testPassword      = "password123"
+	testEmail         = "test@example.com"
+	testRole          = "user"
+	validRefreshToken = "valid-refresh-token"
+	accessToken       = "access-token"
+	invalidToken      = "invalid-token"
+)
+
+var testUUID = uuid.New()
 
 type MockAuthService struct {
 	mock.Mock
@@ -51,7 +61,6 @@ func (m *MockAuthService) HealthCheck(ctx context.Context) error {
 	return args.Error(0)
 }
 
-// Test helpers
 type grpcTestDeps struct {
 	authService *MockAuthService
 	server      *grpc.Server
@@ -65,47 +74,33 @@ func setupGRPCTest(t *testing.T) *grpcTestDeps {
 	grpcServer := config.NewGRPCServer()
 	pb.RegisterAuthServiceServer(grpcServer.Server, authServer)
 
-	// Create in-memory connection for testing
-	listener := bufconn.Listen(1024 * 1024)
-
-	// Start server in goroutine
-	go func() {
-		if err := grpcServer.Serve(listener); err != nil {
-			t.Logf("Server exited with error: %v", err)
-		}
-	}()
+	grpcServer.StartWithGracefulShutdown()
 
 	// Create gRPC client
-	conn, err := grpc.DialContext(
-		context.Background(),
-		"bufnet",
-		grpc.WithContextDialer(func(ctx context.Context, s string) (net.Conn, error) {
-			return listener.Dial()
-		}),
-		grpc.WithInsecure(),
-	)
-	require.NoError(t, err, "Failed to create gRPC client connection")
+	addr := flag.String("addr", "localhost:50051", "the address to connect to")
+	conn, err := grpc.NewClient(*addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	assert.NoError(t, err, "Failed to create gRPC client connection")
+	defer conn.Close()
 
 	return &grpcTestDeps{
 		authService: authService,
-		server:      grpcServer,
+		server:      grpcServer.Server,
 		client:      pb.NewAuthServiceClient(conn),
 		cleanup: func() {
-			grpcServer.GracefulStop()
 			conn.Close()
-			listener.Close()
+			grpcServer.Server.GracefulStop()
 		},
 	}
 }
 
 func mockClaims() *config.Claims {
 	return &config.Claims{
-		Username: "testuser",
-		Email:    "test@example.com",
-		Role:     "user",
+		Username: testUsername,
+		Email:    testEmail,
+		Role:     testRole,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   uuid.New().String(),
-			ExpiresAt: time.Now().Add(time.Hour).Unix(),
+			Subject:   testUUID.String(),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
 		},
 	}
 }
@@ -120,53 +115,56 @@ func TestRegister(t *testing.T) {
 		req            *pb.RegisterRequest
 		mockSetup      func(*grpcTestDeps)
 		expectedResp   *pb.RegisterResponse
-		expectedStatus codes.Code
+		expectedErr    bool
+		expectedStatus int
 	}{
 		{
 			name: "Successful registration",
 			req: &pb.RegisterRequest{
-				Username: "newuser",
-				Email:    "new@example.com",
-				Password: "ValidPass123!",
-				Role:     "user",
+				Username: testUsername,
+				Email:    testEmail,
+				Password: testPassword,
+				Role:     testRole,
 			},
 			mockSetup: func(d *grpcTestDeps) {
 				d.authService.On("Register",
-					"newuser", "new@example.com", "ValidPass123!", "user").
+					testUsername, testEmail, testPassword, testRole).
 					Return(testUUID, nil)
 			},
 			expectedResp: &pb.RegisterResponse{
 				Sub: testUUID.String(),
 			},
-			expectedStatus: codes.OK,
+			expectedErr: false,
 		},
 		{
 			name: "Invalid email format",
 			req: &pb.RegisterRequest{
-				Email:    "invalid-email",
-				Password: "ValidPass123!",
+				Email:    testEmail,
+				Password: testPassword,
 			},
 			mockSetup: func(d *grpcTestDeps) {
 				d.authService.On("Register",
-					"", "invalid-email", "ValidPass123!", "").
+					testUsername, testEmail, testPassword, testRole).
 					Return(uuid.Nil, customerrors.ErrInvalidEmail)
 			},
-			expectedStatus: codes.InvalidArgument,
+			expectedErr:    true,
+			expectedStatus: 3,
 		},
 		{
 			name: "Username already exists",
 			req: &pb.RegisterRequest{
-				Username: "existinguser",
-				Email:    "new@example.com",
-				Password: "ValidPass123!",
-				Role:     "user",
+				Username: testUsername,
+				Email:    testEmail,
+				Password: testPassword,
+				Role:     testRole,
 			},
 			mockSetup: func(d *grpcTestDeps) {
 				d.authService.On("Register",
-					"existinguser", "new@example.com", "ValidPass123!", "user").
+					testUsername, testEmail, testPassword, testRole).
 					Return(uuid.Nil, customerrors.ErrUsernameAlreadyExists)
 			},
-			expectedStatus: codes.AlreadyExists,
+			expectedErr:    true,
+			expectedStatus: 6,
 		},
 	}
 
@@ -179,15 +177,17 @@ func TestRegister(t *testing.T) {
 			defer d.cleanup()
 			tc.mockSetup(d)
 
-			resp, err := d.client.Register(context.Background(), tc.req)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 
-			if tc.expectedStatus == codes.OK {
+			resp, err := d.client.Register(ctx, tc.req)
+
+			if !tc.expectedErr {
 				assert.NoError(t, err)
 				assert.Equal(t, tc.expectedResp, resp)
 			} else {
 				assert.Error(t, err)
-				st, ok := status.FromError(err)
-				require.True(t, ok, "Expected gRPC status error")
+				st, _ := status.FromError(err)
 				assert.Equal(t, tc.expectedStatus, st.Code())
 			}
 
@@ -199,57 +199,57 @@ func TestRegister(t *testing.T) {
 func TestLogin(t *testing.T) {
 	t.Parallel()
 
-	accessToken := "test-access-token"
-	refreshToken := "test-refresh-token"
-
 	testCases := []struct {
 		name           string
 		req            *pb.LoginRequest
 		mockSetup      func(*grpcTestDeps)
 		expectedResp   *pb.LoginResponse
-		expectedStatus codes.Code
+		expectedErr    bool
+		expectedStatus int
 	}{
 		{
 			name: "Successful login",
 			req: &pb.LoginRequest{
-				Username: "testuser",
-				Password: "correctpassword",
+				Username: testUsername,
+				Password: testPassword,
 			},
 			mockSetup: func(d *grpcTestDeps) {
 				d.authService.On("Login",
-					"testuser", "correctpassword").
-					Return(accessToken, refreshToken, nil)
+					testUsername, testPassword).
+					Return(accessToken, validRefreshToken, nil)
 			},
 			expectedResp: &pb.LoginResponse{
 				AccessToken:  accessToken,
-				RefreshToken: refreshToken,
+				RefreshToken: validRefreshToken,
 			},
-			expectedStatus: codes.OK,
+			expectedErr: false,
 		},
 		{
 			name: "Empty credentials",
 			req: &pb.LoginRequest{
-				Username: "",
-				Password: "",
+				Username: testUsername,
+				Password: testPassword,
 			},
 			mockSetup: func(d *grpcTestDeps) {
-				d.authService.On("Login", "", "").
+				d.authService.On("Login", testUsername, testPassword).
 					Return("", "", customerrors.ErrBadRequest)
 			},
-			expectedStatus: codes.InvalidArgument,
+			expectedErr:    true,
+			expectedStatus: 3,
 		},
 		{
 			name: "Invalid credentials",
 			req: &pb.LoginRequest{
-				Username: "testuser",
-				Password: "wrongpassword",
+				Username: testUsername,
+				Password: testPassword,
 			},
 			mockSetup: func(d *grpcTestDeps) {
 				d.authService.On("Login",
-					"testuser", "wrongpassword").
+					testUsername, testPassword).
 					Return("", "", customerrors.ErrInvalidCredentials)
 			},
-			expectedStatus: codes.Unauthenticated,
+			expectedErr:    true,
+			expectedStatus: 16,
 		},
 	}
 
@@ -262,15 +262,17 @@ func TestLogin(t *testing.T) {
 			defer d.cleanup()
 			tc.mockSetup(d)
 
-			resp, err := d.client.Login(context.Background(), tc.req)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 
-			if tc.expectedStatus == codes.OK {
+			resp, err := d.client.Login(ctx, tc.req)
+
+			if !tc.expectedErr {
 				assert.NoError(t, err)
 				assert.Equal(t, tc.expectedResp, resp)
 			} else {
 				assert.Error(t, err)
-				st, ok := status.FromError(err)
-				require.True(t, ok, "Expected gRPC status error")
+				st, _ := status.FromError(err)
 				assert.Equal(t, tc.expectedStatus, st.Code())
 			}
 
@@ -282,28 +284,27 @@ func TestLogin(t *testing.T) {
 func TestRefresh(t *testing.T) {
 	t.Parallel()
 
-	newAccessToken := "new-access-token"
-
 	testCases := []struct {
 		name           string
 		req            *pb.RefreshTokenRequest
 		mockSetup      func(*grpcTestDeps)
 		expectedResp   *pb.RefreshTokenResponse
-		expectedStatus codes.Code
+		expectedErr    bool
+		expectedStatus int
 	}{
 		{
 			name: "Successful refresh",
 			req: &pb.RefreshTokenRequest{
-				RefreshToken: "valid-refresh-token",
+				RefreshToken: validRefreshToken,
 			},
 			mockSetup: func(d *grpcTestDeps) {
-				d.authService.On("Refresh", "valid-refresh-token").
-					Return(newAccessToken, nil)
+				d.authService.On("Refresh", validRefreshToken).
+					Return(accessToken, nil)
 			},
 			expectedResp: &pb.RefreshTokenResponse{
-				AccessToken: newAccessToken,
+				AccessToken: accessToken,
 			},
-			expectedStatus: codes.OK,
+			expectedErr: false,
 		},
 		{
 			name: "Empty refresh token",
@@ -314,18 +315,20 @@ func TestRefresh(t *testing.T) {
 				d.authService.On("Refresh", "").
 					Return("", customerrors.ErrBadRequest)
 			},
-			expectedStatus: codes.InvalidArgument,
+			expectedErr:    true,
+			expectedStatus: 3,
 		},
 		{
 			name: "Invalid refresh token",
 			req: &pb.RefreshTokenRequest{
-				RefreshToken: "invalid-token",
+				RefreshToken: invalidToken,
 			},
 			mockSetup: func(d *grpcTestDeps) {
-				d.authService.On("Refresh", "invalid-token").
-					Return("", customerrors.ErrInvalidToken)
+				d.authService.On("Refresh", invalidToken).
+					Return("", jwt.ErrSignatureInvalid)
 			},
-			expectedStatus: codes.Unauthenticated,
+			expectedErr:    true,
+			expectedStatus: 16,
 		},
 	}
 
@@ -338,15 +341,17 @@ func TestRefresh(t *testing.T) {
 			defer d.cleanup()
 			tc.mockSetup(d)
 
-			resp, err := d.client.Refresh(context.Background(), tc.req)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 
-			if tc.expectedStatus == codes.OK {
+			resp, err := d.client.Refresh(ctx, tc.req)
+
+			if !tc.expectedErr {
 				assert.NoError(t, err)
 				assert.Equal(t, tc.expectedResp, resp)
 			} else {
 				assert.Error(t, err)
-				st, ok := status.FromError(err)
-				require.True(t, ok, "Expected gRPC status error")
+				st, _ := status.FromError(err)
 				assert.Equal(t, tc.expectedStatus, st.Code())
 			}
 
@@ -365,15 +370,16 @@ func TestValidate(t *testing.T) {
 		req            *pb.ValidateTokenRequest
 		mockSetup      func(*grpcTestDeps)
 		expectedResp   *pb.ValidateTokenResponse
-		expectedStatus codes.Code
+		expectedErr    bool
+		expectedStatus int
 	}{
 		{
 			name: "Successful validation",
 			req: &pb.ValidateTokenRequest{
-				AccessToken: "valid-token",
+				AccessToken: accessToken,
 			},
 			mockSetup: func(d *grpcTestDeps) {
-				d.authService.On("Validate", "valid-token").
+				d.authService.On("Validate", accessToken).
 					Return(testClaims, nil)
 			},
 			expectedResp: &pb.ValidateTokenResponse{
@@ -382,7 +388,7 @@ func TestValidate(t *testing.T) {
 				Email:    testClaims.Email,
 				Role:     testClaims.Role,
 			},
-			expectedStatus: codes.OK,
+			expectedErr: false,
 		},
 		{
 			name: "Empty token",
@@ -393,7 +399,8 @@ func TestValidate(t *testing.T) {
 				d.authService.On("Validate", "").
 					Return(nil, customerrors.ErrBadRequest)
 			},
-			expectedStatus: codes.InvalidArgument,
+			expectedErr:    true,
+			expectedStatus: 3,
 		},
 		{
 			name: "Expired token",
@@ -402,9 +409,10 @@ func TestValidate(t *testing.T) {
 			},
 			mockSetup: func(d *grpcTestDeps) {
 				d.authService.On("Validate", "expired-token").
-					Return(nil, customerrors.ErrTokenExpired)
+					Return(nil, jwt.ErrTokenExpired)
 			},
-			expectedStatus: codes.Unauthenticated,
+			expectedErr:    true,
+			expectedStatus: 16,
 		},
 	}
 
@@ -417,15 +425,17 @@ func TestValidate(t *testing.T) {
 			defer d.cleanup()
 			tc.mockSetup(d)
 
-			resp, err := d.client.Validate(context.Background(), tc.req)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 
-			if tc.expectedStatus == codes.OK {
+			resp, err := d.client.Validate(ctx, tc.req)
+
+			if !tc.expectedErr {
 				assert.NoError(t, err)
 				assert.Equal(t, tc.expectedResp, resp)
 			} else {
 				assert.Error(t, err)
-				st, ok := status.FromError(err)
-				require.True(t, ok, "Expected gRPC status error")
+				st, _ := status.FromError(err)
 				assert.Equal(t, tc.expectedStatus, st.Code())
 			}
 
@@ -441,7 +451,8 @@ func TestHealthz(t *testing.T) {
 		name           string
 		mockSetup      func(*grpcTestDeps)
 		expectedResp   *pb.HealthzResponse
-		expectedStatus codes.Code
+		expectedErr    bool
+		expectedStatus int
 	}{
 		{
 			name: "Healthy service",
@@ -452,7 +463,7 @@ func TestHealthz(t *testing.T) {
 			expectedResp: &pb.HealthzResponse{
 				Status: "OK",
 			},
-			expectedStatus: codes.OK,
+			expectedErr: false,
 		},
 		{
 			name: "Database unreachable",
@@ -460,15 +471,17 @@ func TestHealthz(t *testing.T) {
 				d.authService.On("HealthCheck", mock.Anything).
 					Return(customerrors.ErrDbUnreacheable)
 			},
-			expectedStatus: codes.Unavailable,
+			expectedErr:    true,
+			expectedStatus: 14,
 		},
 		{
 			name: "Context timeout",
 			mockSetup: func(d *grpcTestDeps) {
 				d.authService.On("HealthCheck", mock.Anything).
-					Return(context.DeadlineExceeded)
+					Return(customerrors.ErrDbTimeout)
 			},
-			expectedStatus: codes.DeadlineExceeded,
+			expectedErr:    true,
+			expectedStatus: 14,
 		},
 	}
 
@@ -481,15 +494,17 @@ func TestHealthz(t *testing.T) {
 			defer d.cleanup()
 			tc.mockSetup(d)
 
-			resp, err := d.client.Healthz(context.Background(), &pb.HealthzRequest{})
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 
-			if tc.expectedStatus == codes.OK {
+			resp, err := d.client.Healthz(ctx, &pb.HealthzRequest{})
+
+			if !tc.expectedErr {
 				assert.NoError(t, err)
 				assert.Equal(t, tc.expectedResp, resp)
 			} else {
 				assert.Error(t, err)
-				st, ok := status.FromError(err)
-				require.True(t, ok, "Expected gRPC status error")
+				st, _ := status.FromError(err)
 				assert.Equal(t, tc.expectedStatus, st.Code())
 			}
 

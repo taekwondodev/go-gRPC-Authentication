@@ -16,18 +16,18 @@ func (e *Error) Error() string {
 }
 
 var (
-	ErrUsernameAlreadyExists = &Error{Code: 6, Message: "username already exists"}
-	ErrEmailAlreadyExists    = &Error{Code: 6, Message: "email already exists"}
-	ErrInvalidCredentials    = &Error{Code: 16, Message: "invalid credentials"}
-	ErrUserNotFound          = &Error{Code: 5, Message: "user not found"}
-	ErrHttpMethodNotAllowed  = &Error{Code: 12, Message: "http method not allowed"}
 	ErrBadRequest            = &Error{Code: 3, Message: "bad request"}
 	ErrInvalidEmail          = &Error{Code: 3, Message: "invalid email"}
 	ErrInvalidPassword       = &Error{Code: 3, Message: "password must be at least 8 characters long, contain at least one uppercase letter, one lowercase letter, one number, and one special character"}
+	ErrUserNotFound          = &Error{Code: 5, Message: "user not found"}
+	ErrUsernameAlreadyExists = &Error{Code: 6, Message: "username already exists"}
+	ErrEmailAlreadyExists    = &Error{Code: 6, Message: "email already exists"}
+	ErrHttpMethodNotAllowed  = &Error{Code: 12, Message: "http method not allowed"}
 	ErrInternalServer        = &Error{Code: 13, Message: "internal server error"}
 	ErrDbUnreacheable        = &Error{Code: 14, Message: "database unreachable"}
 	ErrDbSSLHandshakeFailed  = &Error{Code: 14, Message: "database SSL handshake failed"}
 	ErrDbTimeout             = &Error{Code: 14, Message: "database timeout"}
+	ErrInvalidCredentials    = &Error{Code: 16, Message: "invalid credentials"}
 )
 
 func GetCode(err error) int {
