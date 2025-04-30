@@ -51,9 +51,8 @@ jobs:
           path: |
             ~/go/pkg/mod
             ./app/go.sum
-          key: ${{ runner.os }}-go-${{ github.workflow }}-${{ hashFiles('app/go.sum') }}
+          key: ${{ runner.os }}-go-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-go-${{ github.workflow }}-
             ${{ runner.os }}-go-
 
       - name: Run unit tests
@@ -108,8 +107,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: ./app/Dockerfile
+          context: ./app
+          file: Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
