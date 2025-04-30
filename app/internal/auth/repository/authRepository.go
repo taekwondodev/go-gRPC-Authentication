@@ -112,7 +112,7 @@ func (r *UserRepositoryImpl) Healtz(ctx context.Context) error {
 		switch {
 		case isSSLerror(err):
 			return customerrors.ErrDbSSLHandshakeFailed
-		case ctx.Err() == context.DeadlineExceeded:
+		case ctx.Err() != nil && isDeadlineExceeded(err):
 			return customerrors.ErrDbTimeout
 		default:
 			return customerrors.ErrDbUnreacheable
@@ -126,4 +126,8 @@ func isSSLerror(err error) bool {
 	return strings.Contains(err.Error(), "SSL") ||
 		strings.Contains(err.Error(), "certificate") ||
 		strings.Contains(err.Error(), "TLS")
+}
+
+func isDeadlineExceeded(err error) bool {
+	return err == context.DeadlineExceeded || err.Error() == context.DeadlineExceeded.Error()
 }

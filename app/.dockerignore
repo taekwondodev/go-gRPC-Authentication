@@ -1,9 +1,34 @@
-.env
+# Git
 .git
-.github/
 .gitignore
-Dockerfile
+
+# Docker
+.docker
 .dockerignore
-internal/auth/grpc/server_test.go
-internal/auth/repository/authRepository_test.go
-internal/auth/service/authService_test.go
+**/Dockerfile*
+**/docker-compose*
+
+# Build artifacts
+**/bin
+**/build
+**/dist
+
+# Go specific
+vendor/
+coverage.out
+**/*.test
+*.out
+
+# Editor directories and files
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# test files for development build
+# !**/*_test.go

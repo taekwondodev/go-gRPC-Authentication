@@ -29,11 +29,11 @@ func NewAuthService(repo repository.UserRepository, jwt config.Token) AuthServic
 }
 
 func (s *AuthServiceImpl) Register(username, email, password, role string) (uuid.UUID, error) {
-	if isValidEmail(email) {
+	if !isValidEmail(email) {
 		return uuid.Nil, customerrors.ErrInvalidEmail
 	}
 
-	if isValidPassword(password) {
+	if !isValidPassword(password) {
 		return uuid.Nil, customerrors.ErrInvalidPassword
 	}
 

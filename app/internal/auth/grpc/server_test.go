@@ -2,7 +2,7 @@ package grpc_test
 
 import (
 	"context"
-	"flag"
+	"net"
 	"testing"
 	"time"
 
@@ -13,16 +13,18 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/test/bufconn"
 
 	pb "app/gen"
 	gRPC "app/internal/auth/grpc"
 	"app/internal/config"
 	customerrors "app/internal/customErrors"
+	"app/internal/interceptors"
 )
 
 const (
 	testUsername      = "testuser"
-	testPassword      = "password123"
+	testPassword      = "password123!"
 	testEmail         = "test@example.com"
 	testRole          = "user"
 	validRefreshToken = "valid-refresh-token"
@@ -53,6 +55,9 @@ func (m *MockAuthService) Refresh(refreshToken string) (string, error) {
 
 func (m *MockAuthService) Validate(accessToken string) (*config.Claims, error) {
 	args := m.Called(accessToken)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*config.Claims), args.Error(1)
 }
 
@@ -71,24 +76,39 @@ type grpcTestDeps struct {
 func setupGRPCTest(t *testing.T) *grpcTestDeps {
 	authService := &MockAuthService{}
 	authServer := gRPC.NewServer(authService)
-	grpcServer := config.NewGRPCServer()
-	pb.RegisterAuthServiceServer(grpcServer.Server, authServer)
 
-	grpcServer.StartWithGracefulShutdown()
+	serveropts := []grpc.ServerOption{
+		grpc.ChainUnaryInterceptor(
+			interceptors.ErrorInterceptor,
+		),
+	}
+	grpcServer := grpc.NewServer(serveropts...)
+	pb.RegisterAuthServiceServer(grpcServer, authServer)
+	listener := bufconn.Listen(1024 * 1024)
 
-	// Create gRPC client
-	addr := flag.String("addr", "localhost:50051", "the address to connect to")
-	conn, err := grpc.NewClient(*addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	assert.NoError(t, err, "Failed to create gRPC client connection")
-	defer conn.Close()
+	go func() {
+		if err := grpcServer.Serve(listener); err != nil {
+			t.Logf("server exited with error: %v", err)
+		}
+	}()
+
+	conn, err := grpc.Dial(
+		"bufnet",
+		grpc.WithContextDialer(func(ctx context.Context, s string) (net.Conn, error) {
+			return listener.Dial()
+		}),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	assert.NoError(t, err)
 
 	return &grpcTestDeps{
 		authService: authService,
-		server:      grpcServer.Server,
+		server:      grpcServer,
 		client:      pb.NewAuthServiceClient(conn),
 		cleanup: func() {
+			grpcServer.GracefulStop()
 			conn.Close()
-			grpcServer.Server.GracefulStop()
+			listener.Close()
 		},
 	}
 }
@@ -107,7 +127,6 @@ func mockClaims() *config.Claims {
 
 func TestRegister(t *testing.T) {
 	t.Parallel()
-
 	testUUID := uuid.New()
 
 	testCases := []struct {
@@ -139,12 +158,12 @@ func TestRegister(t *testing.T) {
 		{
 			name: "Invalid email format",
 			req: &pb.RegisterRequest{
-				Email:    testEmail,
+				Email:    "invalid-email",
 				Password: testPassword,
 			},
 			mockSetup: func(d *grpcTestDeps) {
 				d.authService.On("Register",
-					testUsername, testEmail, testPassword, testRole).
+					"", "invalid-email", testPassword, "").
 					Return(uuid.Nil, customerrors.ErrInvalidEmail)
 			},
 			expectedErr:    true,
@@ -153,14 +172,14 @@ func TestRegister(t *testing.T) {
 		{
 			name: "Username already exists",
 			req: &pb.RegisterRequest{
-				Username: testUsername,
+				Username: "existinguser",
 				Email:    testEmail,
 				Password: testPassword,
 				Role:     testRole,
 			},
 			mockSetup: func(d *grpcTestDeps) {
 				d.authService.On("Register",
-					testUsername, testEmail, testPassword, testRole).
+					"existinguser", testEmail, testPassword, testRole).
 					Return(uuid.Nil, customerrors.ErrUsernameAlreadyExists)
 			},
 			expectedErr:    true,
@@ -198,7 +217,6 @@ func TestRegister(t *testing.T) {
 
 func TestLogin(t *testing.T) {
 	t.Parallel()
-
 	testCases := []struct {
 		name           string
 		req            *pb.LoginRequest
@@ -227,11 +245,11 @@ func TestLogin(t *testing.T) {
 		{
 			name: "Empty credentials",
 			req: &pb.LoginRequest{
-				Username: testUsername,
-				Password: testPassword,
+				Username: "",
+				Password: "",
 			},
 			mockSetup: func(d *grpcTestDeps) {
-				d.authService.On("Login", testUsername, testPassword).
+				d.authService.On("Login", "", "").
 					Return("", "", customerrors.ErrBadRequest)
 			},
 			expectedErr:    true,
@@ -241,11 +259,11 @@ func TestLogin(t *testing.T) {
 			name: "Invalid credentials",
 			req: &pb.LoginRequest{
 				Username: testUsername,
-				Password: testPassword,
+				Password: "wrongpassword",
 			},
 			mockSetup: func(d *grpcTestDeps) {
 				d.authService.On("Login",
-					testUsername, testPassword).
+					testUsername, "wrongpassword").
 					Return("", "", customerrors.ErrInvalidCredentials)
 			},
 			expectedErr:    true,
@@ -283,7 +301,6 @@ func TestLogin(t *testing.T) {
 
 func TestRefresh(t *testing.T) {
 	t.Parallel()
-
 	testCases := []struct {
 		name           string
 		req            *pb.RefreshTokenRequest
@@ -362,7 +379,6 @@ func TestRefresh(t *testing.T) {
 
 func TestValidate(t *testing.T) {
 	t.Parallel()
-
 	testClaims := mockClaims()
 
 	testCases := []struct {
@@ -446,7 +462,6 @@ func TestValidate(t *testing.T) {
 
 func TestHealthz(t *testing.T) {
 	t.Parallel()
-
 	testCases := []struct {
 		name           string
 		mockSetup      func(*grpcTestDeps)

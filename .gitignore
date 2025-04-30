@@ -35,3 +35,4 @@ postgres/ssl/
 
 # docker dev
 docker-compose-dev.yml
+app/Dockerfile.dev

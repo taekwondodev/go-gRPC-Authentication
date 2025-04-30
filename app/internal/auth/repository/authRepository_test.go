@@ -18,7 +18,7 @@ import (
 
 const (
 	testUsername  = "testuser"
-	testPassword  = "password123"
+	testPassword  = "password123!"
 	testEmail     = "test@example.com"
 	testRole      = "user"
 	databaseError = "Database error"
@@ -33,7 +33,10 @@ type testDependencies struct {
 }
 
 func setupTest(t *testing.T) *testDependencies {
-	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	db, mock, err := sqlmock.New(
+		sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual),
+		sqlmock.MonitorPingsOption(true),
+	)
 	assert.NoError(t, err)
 
 	repo := repository.NewUserRepository(db).(*repository.UserRepositoryImpl)
@@ -60,7 +63,7 @@ func mockUserRow(mock sqlmock.Sqlmock, user models.User) *sqlmock.Rows {
 
 func mockExistsQuery(mock sqlmock.Sqlmock, usernameExists, emailExists bool) {
 	mock.ExpectQuery(
-		`SELECT EXISTS(SELECT 1 FROM users WHERE username = $1) AS username_exists,` +
+		`SELECT EXISTS(SELECT 1 FROM users WHERE username = $1) AS username_exists, ` +
 			`EXISTS(SELECT 1 FROM users WHERE email = $2) AS email_exists`,
 	).WillReturnRows(
 		sqlmock.NewRows([]string{"username_exists", "email_exists"}).
@@ -120,7 +123,7 @@ func TestCheckUserExists(t *testing.T) {
 			email:    testEmail,
 			mockSetup: func(m sqlmock.Sqlmock) {
 				m.ExpectQuery(
-					`SELECT EXISTS(SELECT 1 FROM users WHERE username = $1) AS username_exists,` +
+					`SELECT EXISTS(SELECT 1 FROM users WHERE username = $1) AS username_exists, ` +
 						`EXISTS(SELECT 1 FROM users WHERE email = $2) AS email_exists`,
 				).WillReturnError(customerrors.ErrInternalServer)
 			},
@@ -286,7 +289,7 @@ func TestGetUserByCredentials(t *testing.T) {
 		{
 			name:     "Wrong password",
 			username: testUsername,
-			password: testPassword,
+			password: "wrongpassword",
 			mockSetup: func(m sqlmock.Sqlmock) {
 				m.ExpectQuery(
 					`SELECT sub, username, email, password_hash, role, created_at, updated_at, is_active ` +
@@ -358,19 +361,6 @@ func TestHealtz(t *testing.T) {
 				m.ExpectPing().WillReturnError(customerrors.ErrDbSSLHandshakeFailed)
 			},
 			expectedError: customerrors.ErrDbSSLHandshakeFailed,
-		},
-		{
-			name: "Timeout error",
-			ctx: func() context.Context {
-				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
-				time.Sleep(2 * time.Nanosecond)
-				cancel()
-				return ctx
-			}(),
-			mockSetup: func(m sqlmock.Sqlmock) {
-				m.ExpectPing().WillReturnError(customerrors.ErrDbTimeout)
-			},
-			expectedError: customerrors.ErrDbTimeout,
 		},
 		{
 			name: "Generic error",

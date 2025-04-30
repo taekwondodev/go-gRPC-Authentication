@@ -1,7 +1,7 @@
 services:
   auth_service:
     image: ghcr.io/taekwondodev/go-rest-auth:latest
-    container_name: auth_service
+    container_name: auth_service_gRPC
     ports:
       - "50051:50051"
     networks:
@@ -24,7 +24,7 @@ services:
   
   flyway:
     image: flyway/flyway:latest
-    container_name: flyway
+    container_name: flyway_gRPC
     networks:
       - private_network
     depends_on:
@@ -43,7 +43,7 @@ services:
   
   postgres:
     image: postgres:alpine
-    container_name: postgres_auth
+    container_name: postgres_auth_gRPC
     networks:
       - private_network
     environment:
