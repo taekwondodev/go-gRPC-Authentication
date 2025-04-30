@@ -5,13 +5,13 @@ Authentication Microservice gRPC in Go with JWT, Docker, PostgreSQL and End-to-E
 
 ## Features
 - gRPC API with Protocol Buffers
+- gRPC interceptors for error handling and logging
 - JWT Authentication (Access + Refresh tokens)
 - PostgreSQL with TLS 1.3 (verify-full mode)  
 - Docker with internal network isolation 
 - Flyway migrations with certificate verification  
 - Unit testing  
 - Hardware-grade encryption for database connections
-- gRPC interceptors for error handling and logging
 
 ## Requirements
 
