@@ -1,6 +1,6 @@
 services:
   auth_service:
-    image: ghcr.io/taekwondodev/go-rest-auth:latest
+    image: ghcr.io/taekwondodev/go-grpc-auth:latest
     container_name: auth_service_gRPC
     ports:
       - "50051:50051"
