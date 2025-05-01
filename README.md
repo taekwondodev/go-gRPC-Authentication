@@ -148,8 +148,7 @@ go-gRPC-Authentication/
 To test the repository with automated test run the command in the app directory:
 
 ```bash
-docker build -f Dockerfile.test -t myapp-test .
-docker run --rm myapp-test
+go test -v -mod=readonly ./...
 ```
 
 **Note: Only for local development**
