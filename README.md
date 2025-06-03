@@ -3,11 +3,11 @@
 # go-gRPC-Authentication
 
 [![Go](https://img.shields.io/badge/Go-1.24.3+-00ADD8?logo=go)](https://golang.org)
-[![Docker](https://img.shields.io/badge/Docker-20.10+-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13+-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![Flyway](https://img.shields.io/badge/Flyway-Migrations-CC0200?logo=flyway&logoColor=white)](https://flywaydb.org/)
-[![License](https://img.shields.io/github/license/taekwondodev/go-gRPC-Authentication?color=blue&logo=license)](LICENSE)
-[![SonarCloud](https://img.shields.io/badge/SonarCloud-Quality%20Gate-F3702A?logo=sonarcloud&logoColor=white)](https://sonarcloud.io/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Flyway](https://img.shields.io/badge/Flyway-CC0200?logo=flyway&logoColor=white)](https://flywaydb.org/)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![SonarCloud](https://img.shields.io/badge/SonarCloud-F3702A?logo=sonarcloud&logoColor=white)](https://sonarcloud.io/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/taekwondodev/go-gRPC-Authentication/docker-publish.yml?branch=master&logo=github&label=Build)](https://github.com/taekwondodev/go-gRPC-Authentication/actions)
 [![Latest Tag](https://img.shields.io/github/v/tag/taekwondodev/go-gRPC-Authentication?logo=git&color=green&label=Latest%20Tag)](https://github.com/taekwondodev/go-gRPC-Authentication/tags)
 
