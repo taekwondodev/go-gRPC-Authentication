@@ -1,11 +1,11 @@
 package interceptors
 
 import (
-	customerrors "app/internal/customErrors"
 	"context"
 	"log"
 	"time"
 
+	customerrors "github.com/taekwondodev/go-gRPC-Authentication/internal/customErrors"
 	"google.golang.org/grpc"
 )
 

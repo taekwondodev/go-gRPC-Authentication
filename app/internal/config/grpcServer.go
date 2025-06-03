@@ -1,7 +1,6 @@
 package config
 
 import (
-	"app/internal/interceptors"
 	"flag"
 	"log"
 	"net"
@@ -10,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/taekwondodev/go-gRPC-Authentication/internal/interceptors"
 	"google.golang.org/grpc"
 )
 

@@ -1,9 +1,11 @@
 package grpc
 
 import (
-	pb "app/gen"
-	"app/internal/auth/service"
 	"context"
+
+	pb "github.com/taekwondodev/go-gRPC-Authentication/gen"
+
+	"github.com/taekwondodev/go-gRPC-Authentication/internal/auth/service"
 )
 
 type Server struct {

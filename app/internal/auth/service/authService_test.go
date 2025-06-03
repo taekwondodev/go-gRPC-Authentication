@@ -10,13 +10,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/taekwondodev/go-gRPC-Authentication/internal/auth/repository"
+	"github.com/taekwondodev/go-gRPC-Authentication/internal/auth/service"
+	"github.com/taekwondodev/go-gRPC-Authentication/internal/config"
+	customerrors "github.com/taekwondodev/go-gRPC-Authentication/internal/customErrors"
+	"github.com/taekwondodev/go-gRPC-Authentication/internal/models"
 	"golang.org/x/crypto/bcrypt"
-
-	"app/internal/auth/repository"
-	"app/internal/auth/service"
-	"app/internal/config"
-	customerrors "app/internal/customErrors"
-	"app/internal/models"
 )
 
 const (

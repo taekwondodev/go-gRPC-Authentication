@@ -1,9 +1,9 @@
 package interceptors
 
 import (
-	customerrors "app/internal/customErrors"
 	"context"
 
+	customerrors "github.com/taekwondodev/go-gRPC-Authentication/internal/customErrors"
 	"google.golang.org/grpc"
 )
 

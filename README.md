@@ -1,16 +1,29 @@
+<div align="center">
+
 # go-gRPC-Authentication
-[![Go](https://img.shields.io/badge/Go-1.24.2+-00ADD8?logo=go)](https://golang.org)
+
+[![Go](https://img.shields.io/badge/Go-1.24.3+-00ADD8?logo=go)](https://golang.org)
+[![Docker](https://img.shields.io/badge/Docker-20.10+-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13+-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Flyway](https://img.shields.io/badge/Flyway-Migrations-CC0200?logo=flyway&logoColor=white)](https://flywaydb.org/)
+[![License](https://img.shields.io/github/license/taekwondodev/go-gRPC-Authentication?color=blue&logo=license)](LICENSE)
+[![SonarCloud](https://img.shields.io/badge/SonarCloud-Quality%20Gate-F3702A?logo=sonarcloud&logoColor=white)](https://sonarcloud.io/)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/taekwondodev/go-gRPC-Authentication/docker-publish.yml?branch=master&logo=github&label=Build)](https://github.com/taekwondodev/go-gRPC-Authentication/actions)
+[![Latest Tag](https://img.shields.io/github/v/tag/taekwondodev/go-gRPC-Authentication?logo=git&color=green&label=Latest%20Tag)](https://github.com/taekwondodev/go-gRPC-Authentication/tags)
 
 Authentication Microservice gRPC in Go with JWT, Docker, PostgreSQL and End-to-End Encryption
 
+</div>
+
 ## Features
+
 - gRPC API with Protocol Buffers
 - gRPC interceptors for error handling and logging
 - JWT Authentication (Access + Refresh tokens)
-- PostgreSQL with TLS 1.3 (verify-full mode)  
-- Docker with internal network isolation 
-- Flyway migrations with certificate verification  
-- Unit testing  
+- PostgreSQL with TLS 1.3 (verify-full mode)
+- Docker with internal network isolation
+- Flyway migrations with certificate verification
+- Unit testing
 - Hardware-grade encryption for database connections
 
 ## Requirements
@@ -34,7 +47,7 @@ brew install go
 ```bash
 # Linux
 apt install -y protobuf-compiler
-  
+
 # MacOS
 brew install protobuf
 ```
@@ -69,23 +82,24 @@ For complete proto definition see: proto/auth.proto
 
 1. Download the docker-compose.yml and the configuration script files:
 
-  ```bash
-  # Create a directory for the project
-  mkdir auth && cd auth
+```bash
+# Create a directory for the project
+mkdir auth && cd auth
 
-  # Download the compose file
-  curl -O https://raw.githubusercontent.com/taekwondodev/go-gRPC-Authentication/master/docker-compose.yml
+# Download the compose file
+curl -O https://raw.githubusercontent.com/taekwondodev/go-gRPC-Authentication/master/docker-compose.yml
 
-  # Download the setup.sh file
-  curl -O https://raw.githubusercontent.com/taekwondodev/go-gRPC-Authentication/master/setup.sh
-  ```
-  Or
+# Download the setup.sh file
+curl -O https://raw.githubusercontent.com/taekwondodev/go-gRPC-Authentication/master/setup.sh
+```
 
-  Clone the project (local development):
-   
-  ```bash
-  git clone https://github.com/taekwondodev/go-gRPC-Authentication.git
-  ```
+Or
+
+Clone the project (local development):
+
+```bash
+git clone https://github.com/taekwondodev/go-gRPC-Authentication.git
+```
 
 ## Configuration
 
@@ -98,7 +112,7 @@ Run the command in the main directory:
 ## Deployment
 
 Run the command in the main directory:
-   
+
 ```bash
 docker compose up -d
 ```
@@ -139,8 +153,8 @@ go-gRPC-Authentication/
 |   ├── go.mod
 |   ├── main.go
 ├── migrations/                               # SQL Script Migrations
-├── postgres/                                 # SSL Certificates   
-├── docker-compose.yml   
+├── postgres/                                 # SSL Certificates
+├── docker-compose.yml
 ```
 
 ## Testing

@@ -1,11 +1,11 @@
 package main
 
 import (
-	pb "app/gen"
-	"app/internal/auth/grpc"
-	"app/internal/auth/repository"
-	"app/internal/auth/service"
-	"app/internal/config"
+	pb "github.com/taekwondodev/go-gRPC-Authentication/gen"
+	"github.com/taekwondodev/go-gRPC-Authentication/internal/auth/grpc"
+	"github.com/taekwondodev/go-gRPC-Authentication/internal/auth/repository"
+	"github.com/taekwondodev/go-gRPC-Authentication/internal/auth/service"
+	"github.com/taekwondodev/go-gRPC-Authentication/internal/config"
 )
 
 func main() {

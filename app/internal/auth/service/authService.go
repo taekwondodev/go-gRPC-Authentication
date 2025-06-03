@@ -1,14 +1,14 @@
 package service
 
 import (
-	"app/internal/auth/repository"
-	"app/internal/config"
-	customerrors "app/internal/customErrors"
 	"context"
 	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/taekwondodev/go-gRPC-Authentication/internal/auth/repository"
+	"github.com/taekwondodev/go-gRPC-Authentication/internal/config"
+	customerrors "github.com/taekwondodev/go-gRPC-Authentication/internal/customErrors"
 )
 
 type AuthService interface {

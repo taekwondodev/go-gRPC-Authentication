@@ -9,11 +9,10 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/taekwondodev/go-gRPC-Authentication/internal/auth/repository"
+	customerrors "github.com/taekwondodev/go-gRPC-Authentication/internal/customErrors"
+	"github.com/taekwondodev/go-gRPC-Authentication/internal/models"
 	"golang.org/x/crypto/bcrypt"
-
-	"app/internal/auth/repository"
-	customerrors "app/internal/customErrors"
-	"app/internal/models"
 )
 
 const (
